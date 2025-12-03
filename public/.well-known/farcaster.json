@@ -6,7 +6,7 @@
     "imageUrl": "https://builderscore.vercel.app/hero.png",
     "homeUrl": "https://builderscore.vercel.app",
     "buttonTitle": "Check Builder Score",
-    "splashImageUrl": "https://builderscore.vercel.app/hero.png",
+    "splashImageUrl": "https://builderscore.vercel.app/splash.png",
     "splashBackgroundColor": "#1e293b",
     "webhookUrl": "https://builderscore.vercel.app/api/webhooks",
     "subtitle": "Onchain Reputation on Base",
