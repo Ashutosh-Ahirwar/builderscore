@@ -131,59 +131,52 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const [showConcepts, setShowConcepts] = useState(false);
   const [showImproveGuide, setShowImproveGuide] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  // NEW STATE: Track whether the app has been added
-  const [isAppAdded, setIsAppAdded] = useState(true); // Assume true initially to avoid flicker
+  const [isAdded, setIsAdded] = useState(false); 
 
   // Use useCallback to memoize SDK interaction handlers
   const handleAddMiniApp = useCallback(async () => {
     const sdkInstance = getSdk();
     try {
       await sdkInstance.actions.addMiniApp();
-      setIsAppAdded(true); // Update state on successful add
+      // ADD THIS: Hide button after successful add
+      setIsAdded(true); 
     } catch (e) {
-      console.error('Failed to add mini app manually', e);
+      console.error("Failed to add mini app manually", e);
     }
-  }, []);
+}, []);
 
-  // FIX: Ensure ready() is called reliably and determine initial added state
-  useEffect(() => {
-    const callReadyAndCheckAddedState = async () => {
-      // Check for global 'sdk' object availability
-      // @ts-ignore
-      if (typeof sdk !== 'undefined' && sdk.actions && sdk.actions.ready) { 
-        try {
-          // 1. Signal Ready
-          // @ts-ignore
-          sdk.actions.ready(); 
 
-          // 2. Check Added State
-          // @ts-ignore
-          const context = await sdk.context;
-          // @ts-ignore
-          if (context && context.client) {
-             // @ts-ignore
-             setIsAppAdded(context.client.added);
-          } else {
-             // If context isn't available, we assume the host is not Farcaster, so the button shouldn't show (or rely on default true)
-             setIsAppAdded(true); 
-          }
-          return true; // Success
-        } catch (err) {
-          console.error('Failed to initialize SDK (ready/context check):', err);
-          return false;
+  
+   useEffect(() => {
+    let cancelled = false;
+    const initSdk = async () => {
+      try {
+        // CHANGE THIS LINE: Destructure 'sdk' from the module
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        
+        if (cancelled) return;
+        
+        await sdk.actions.ready();
+        console.log("Farcaster Mini App ready called");
+
+        // NOW THIS WILL WORK
+        const context = await sdk.context;
+        
+        if (context?.client?.added) {
+          setIsAdded(true);
         }
-      }
-      return false; // Not yet available
-    };
 
-    if (!callReadyAndCheckAddedState()) {
-        // If not immediately available, try again after a small delay (100ms)
-        const timer = setTimeout(() => {
-            callReadyAndCheckAddedState();
-        }, 100); 
-        return () => clearTimeout(timer); // Cleanup timer if component unmounts
-    }
-  }, []);
+      } catch (err) {
+        console.error("Failed to initialize Farcaster Mini App SDK", err);
+      }
+    };
+    initSdk();
+    return () => {
+      cancelled = true;
+    };
+}, []);
+
+
 
   const handleCheckScore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,15 +186,15 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     
     const sdkInstance = getSdk();
 
-    // Prompt to add MiniApp on search interaction (ONLY if not already added)
-    // We use the local state `isAppAdded` which was set during useEffect
-    if (!isAppAdded) {
-        try {
-          await sdkInstance.actions.addMiniApp();
-          setIsAppAdded(true); // Update local state immediately on successful prompt
-        } catch (e) {
-          console.log('User skipped adding app or error:', e);
-        }
+    // Prompt to add MiniApp on search interaction
+    try {
+      const context = await sdkInstance.context;
+      // @ts-ignore
+      if (context && context.client && !context.client.added) {
+         await sdkInstance.actions.addMiniApp();
+      }
+    } catch (e) {
+      console.log('User skipped adding app or error:', e);
     }
 
     try {
@@ -286,17 +279,16 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
             <div className="flex items-center justify-between mb-3">
               <h1 className="text-2xl font-bold tracking-tight">Base Builder Score</h1>
               <div className="flex items-center gap-2">
-                {/* CONDITIONAL RENDERING: Bookmark button only appears if isAppAdded is false */}
-                {!isAppAdded && (
-                  <button 
-                    onClick={handleAddMiniApp}
-                    className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all active:scale-95 group"
-                    title="Bookmark App"
-                  >
-                    <Bookmark className="w-4 h-4 text-blue-100 fill-transparent group-hover:fill-blue-100/50 transition-colors" />
-                    <span className="text-xs font-semibold text-blue-50">Bookmark</span>
-                  </button>
-                )}
+                {!isAdded && (
+            <button 
+                onClick={handleAddMiniApp} 
+                className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all active:scale-95 group" 
+                title="Bookmark App"
+            >
+                <Bookmark className="w-4 h-4 text-blue-100 fill-transparent group-hover:fill-blue-100/50 transition-colors" />
+                <span className="text-xs font-semibold text-blue-50">Bookmark</span>
+            </button>
+        )}
               </div>
             </div>
             <p className="text-blue-100/90 text-sm leading-relaxed max-w-[90%]">
