@@ -139,16 +139,24 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     }
   }, []);
 
+  // FIX: Ensure ready() is called reliably when the component mounts
   useEffect(() => {
     const initSdk = async () => {
       const sdkInstance = getSdk();
-      try {
-        await sdkInstance.actions.ready();
-      } catch (err) {
-        console.error('Failed to initialize SDK:', err);
+      // Only call ready if the SDK is actually defined (not the dummy object)
+      // We check for the presence of the 'context' property which is usually absent in the dummy fallback
+      // @ts-ignore
+      if (typeof sdk !== 'undefined' && sdk.actions) { 
+        try {
+          await sdkInstance.actions.ready();
+        } catch (err) {
+          console.error('Failed to call sdk.actions.ready():', err);
+        }
       }
     };
-    initSdk();
+    // Use a small timeout to allow the Farcaster client environment to fully initialize the SDK object
+    const timer = setTimeout(initSdk, 100); 
+    return () => clearTimeout(timer);
   }, []);
 
   const handleCheckScore = async (e: React.FormEvent) => {
