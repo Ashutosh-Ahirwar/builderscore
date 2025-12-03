@@ -70,24 +70,33 @@ export async function GET(request: NextRequest) {
           height: '100%',
           width: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(to bottom right, #0052fc, #003bb5)',
-          color: 'white',
-          fontFamily: 'sans-serif',
           position: 'relative',
+          background: 'linear-gradient(to bottom right, #0052fc, #003bb5)',
         }}
       >
-        {/* Absolute Background Elements don't affect flex layout flow if position is absolute */}
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '50%', filter: 'blur(80px)' }}></div>
-        <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '300px', height: '300px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '50%', filter: 'blur(60px)' }}></div>
+        {/* Wrapper for background decorations - position absolute so they don't count as flex children */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex' }}>
+          <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '50%', filter: 'blur(80px)' }}></div>
+          <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '300px', height: '300px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '50%', filter: 'blur(60px)' }}></div>
+        </div>
 
-        {/* Main Content Container - MUST HAVE display: flex */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
-          <div style={{ fontSize: 32, textTransform: 'uppercase', letterSpacing: '4px', color: '#bfdbfe', marginBottom: 20 }}>Base Builder Score</div>
+        {/* Main Content - This is the only non-absolute child */}
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          zIndex: 10,
+          color: 'white',
+          fontFamily: 'sans-serif',
+        }}>
+          <div style={{ fontSize: 32, textTransform: 'uppercase', letterSpacing: '4px', color: '#bfdbfe', marginBottom: 20 }}>
+            Base Builder Score
+          </div>
           
-          {/* Card Container - MUST HAVE display: flex */}
           <div style={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -96,31 +105,26 @@ export async function GET(request: NextRequest) {
             border: '2px solid rgba(255,255,255,0.2)',
             borderRadius: '40px',
             padding: '40px 80px',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
           }}>
-            {/* Score Text */}
-            <div style={{ fontSize: 140, fontWeight: 900, lineHeight: 1, color: 'white' }}>
+            <div style={{ fontSize: 140, fontWeight: 900, color: 'white' }}>
               {score}
             </div>
             
-            {/* Rank Badge Container - MUST HAVE display: flex */}
             <div style={{ display: 'flex', alignItems: 'center', marginTop: 20, background: 'rgba(0,0,0,0.2)', padding: '10px 30px', borderRadius: '50px' }}>
-              <span style={{ fontSize: 30, color: '#fbbf24', marginRight: 10 }}>🏆</span>
-              <span style={{ fontSize: 28, fontWeight: 'bold', color: 'white' }}>{rankText}</span>
+              <div style={{ fontSize: 30, color: '#fbbf24', marginRight: 10 }}>🏆</div>
+              <div style={{ fontSize: 28, fontWeight: 'bold', color: 'white' }}>{rankText}</div>
             </div>
           </div>
 
-          {/* User Profile Section - MUST HAVE display: flex */}
           <div style={{ display: 'flex', alignItems: 'center', marginTop: 40 }}>
-            {pfpSrc ? (
-                <img 
-                  src={pfpSrc}
-                  width="80" 
-                  height="80" 
-                  style={{ borderRadius: '50%', border: '4px solid rgba(255,255,255,0.3)', marginRight: 20, objectFit: 'cover' }} 
-                />
-            ) : null}
-            {/* Name text is a direct child of a flex container, so it's fine wrapped in div */}
+            {pfpSrc && (
+              <img 
+                src={pfpSrc}
+                width="80" 
+                height="80" 
+                style={{ borderRadius: '50%', border: '4px solid rgba(255,255,255,0.3)', marginRight: 20 }} 
+              />
+            )}
             <div style={{ fontSize: 50, fontWeight: 'bold', color: 'white' }}>@{name}</div>
           </div>
         </div>
