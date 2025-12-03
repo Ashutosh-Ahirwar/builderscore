@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Search, Trophy, Calendar, User, Shield, Database, Activity, 
-  AlertCircle, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, 
-  BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2, CornerUpRight 
+  AlertCircle, ExternalLink, ChevronDown, 
+  BookOpen, X, Target, Sparkles, Heart, Bookmark, Share2, CornerUpRight,
+  CheckCircle2 // Added for core concepts
 } from 'lucide-react';
 
 // --- Configuration ---
@@ -27,7 +28,7 @@ interface ScoreUIProps {
   initialScoreData?: BuilderScore | null;
 }
 
-// --- Data ---
+// --- Full Data from User Input ---
 const SCORINGDATA = [
   {
     category: "Onchain Activity",
@@ -36,74 +37,170 @@ const SCORINGDATA = [
       { name: "ETH Balance", points: "8 pts", desc: "Verifies total ETH balance across all supported chains." },
       { name: "Outgoing Transactions", points: "8 pts", desc: "Verifies total number of outgoing transactions." },
       { name: "First Transaction", points: "8 pts", desc: "Verifies timestamp of first transaction." },
-      { name: "Contracts Testnet", points: "4 pts", desc: "Smart contracts deployed to testnet." },
-      { name: "Contracts Mainnet", points: "8 pts", desc: "Smart contracts deployed to mainnet." },
+      { name: "Contracts Deployed (Testnet)", points: "4 pts", desc: "Verifies total number of smart contracts deployed to testnet." },
+      { name: "Contracts Deployed (Mainnet)", points: "8 pts", desc: "Verifies total number of smart contracts deployed to mainnet." },
       { name: "Active Smart Contracts", points: "12 pts", desc: "Mainnet contracts with 10+ unique transacting wallets." },
-    ]
-  },
-  {
-    category: "Base Ecosystem",
-    icon: <Database className="w-5 h-5 text-blue-600" />,
-    items: [
-      { name: "Base Learn", points: "13 pts", desc: "Completion of Base Learn exercises (>13 SBTs)." },
-      { name: "Builder Rewards", points: "30 pts", desc: "ETH earnings from Base Builder Rewards Program." },
-      { name: "base-builds Earnings", points: "30 pts", desc: "ETH earnings from base-builds rounds." },
-      { name: "Basecamp Attendee", points: "20 pts", desc: "Attendance at Basecamp 001 or 002." },
-      { name: "Hackathons Participation", points: "20 pts", desc: "Participation in Base Hackathons." },
-      { name: "Hackathons Won", points: "30 pts", desc: "Wins in Base Hackathons." },
     ]
   },
   {
     category: "GitHub",
     icon: <User className="w-5 h-5 text-slate-700" />,
     items: [
-      { name: "Total Contributions", points: "30 pts", desc: "Total GitHub contributions over time." },
-      { name: "Repositories", points: "8 pts", desc: "Number of repositories contributed to." },
-      { name: "Account Age", points: "8 pts", desc: "GitHub account creation date." },
-      { name: "Stars", points: "6 pts", desc: "Number of repository stars." },
-      { name: "Forks", points: "12 pts", desc: "Number of repository forks." },
-      { name: "Followers", points: "6 pts", desc: "Number of GitHub followers." },
-      { name: "Crypto Repos", points: "30 pts", desc: "Contributions to curated crypto repositories." },
-      { name: "Crypto Commits", points: "30 pts", desc: "Commits to curated crypto repositories." },
+      { name: "Total Contributions", points: "30 pts", desc: "Verifies total GitHub contributions over time." },
+      { name: "Repositories", points: "8 pts", desc: "Verifies number of repositories contributed to." },
+      { name: "Account Age", points: "8 pts", desc: "Verifies GitHub account creation date." },
+      { name: "Stars", points: "6 pts", desc: "Verifies number of repository stars." },
+      { name: "Forks", points: "12 pts", desc: "Verifies number of repository forks." },
+      { name: "Followers", points: "6 pts", desc: "Verifies number of GitHub followers." },
+      { name: "Crypto Repos Contributed", points: "30 pts", desc: "Verifies contributions to curated crypto repositories." },
+      { name: "Crypto Repos Commits", points: "30 pts", desc: "Verifies commits to curated crypto repositories." },
+    ]
+  },
+  {
+    category: "Base Ecosystem",
+    icon: <Database className="w-5 h-5 text-blue-600" />,
+    items: [
+      { name: "Base Learn", points: "13 pts", desc: "Proves completion of Base Learn exercises (13 SBTs)." },
+      { name: "Builder Rewards (ETH)", points: "30 pts", desc: "Checks total ETH earnings from Base Builder Rewards." },
+      { name: "/base-builds Earnings", points: "30 pts", desc: "Checks total ETH earnings from /base-builds rounds." },
+      { name: "Basecamp Attendee", points: "20 pts", desc: "Proves attendance at Basecamp 001 or 002." },
+      { name: "Hackathons Participation", points: "20 pts", desc: "Proves participation in Base Hackathons." },
+      { name: "Hackathons Won", points: "30 pts", desc: "Proves wins in Base Hackathons." },
+    ]
+  },
+  {
+    category: "ENS",
+    icon: <Shield className="w-5 h-5 text-blue-400" />,
+    items: [
+      { name: "ENS Account Age", points: "6 pts", desc: "Verifies timestamp of first ENS domain registration." },
+    ]
+  },
+  {
+    category: "X/Twitter",
+    icon: <User className="w-5 h-5 text-sky-500" />,
+    items: [
+      { name: "X Account Age", points: "4 pts", desc: "Verifies Twitter/X account creation date." },
+    ]
+  },
+  {
+    category: "Bountycaster",
+    icon: <Target className="w-5 h-5 text-red-500" />,
+    items: [
+      { name: "Bounties Completed", points: "12 pts", desc: "Checks amount of bounties completed on Bountycaster." },
+    ]
+  },
+  {
+    category: "BuidlGuidl",
+    icon: <Shield className="w-5 h-5 text-slate-600" />,
+    items: [
+      { name: "Speed Run Ethereum", points: "12 pts", desc: "Verifies number of Speed Run Ethereum challenges completed." },
+      { name: "ETH Tech Tree", points: "12 pts", desc: "Verifies points earned in ETH Tech Tree Challenges." },
+      { name: "Batches Graduate", points: "20 pts", desc: "Proves graduation from BuidlGuidl Batch #8-#20." },
+      { name: "CTF Challenges", points: "12 pts", desc: "Verifies number of BuidlGuidl CTF challenges completed." },
+    ]
+  },
+  {
+    category: "BUILD",
+    icon: <Activity className="w-5 h-5 text-indigo-500" />,
+    items: [
+      { name: "$BUILD Contribution", points: "20 pts", desc: "Checks amount of $BUILD tokens committed." },
+    ]
+  },
+  {
+    category: "Celo",
+    icon: <Target className="w-5 h-5 text-lime-500" />,
+    items: [
+      { name: "Proof Of Ship Endorsements", points: "8 pts", desc: "Checks endorsements on KarmaGAP." },
+      { name: "Proof Of Ship Participation", points: "20 pts", desc: "Verifies Celo Proof of Ship seasons participated in." },
+      { name: "Builder Rewards (CELO)", points: "30 pts", desc: "Checks total CELO earnings from Builder Rewards." },
+      { name: "Prosperity Passport Score", points: "30 pts", desc: "Verifies user's Prosperity Passport Score." },
+    ]
+  },
+  {
+    category: "Crypto Nomads",
+    icon: <User className="w-5 h-5 text-orange-500" />,
+    items: [
+      { name: "CNC Member", points: "12 pts", desc: "Proves membership in Crypto Nomads Club." },
+    ]
+  },
+  {
+    category: "Developer DAO",
+    icon: <Shield className="w-5 h-5 text-slate-800" />,
+    items: [
+      { name: "D_D OG", points: "12 pts", desc: "Proves OG status (Genesis NFT before block 13612670)." },
+      { name: "D_D Member", points: "8 pts", desc: "Proves membership (400+ $CODE tokens)." },
+    ]
+  },
+  {
+    category: "Devfolio",
+    icon: <Trophy className="w-5 h-5 text-blue-600" />,
+    items: [
+      { name: "Hackathons Participation", points: "20 pts", desc: "Proves participation in Devfolio Hackathons." },
+      { name: "Hackathons Won", points: "30 pts", desc: "Proves wins in Devfolio Hackathons." },
+    ]
+  },
+  {
+    category: "Encode",
+    icon: <Target className="w-5 h-5 text-orange-600" />,
+    items: [
+      { name: "Programmes Participation", points: "20 pts", desc: "Proves participation in Encode Programmes." },
+      { name: "Programmes Won", points: "30 pts", desc: "Proves wins in Encode Programmes." },
+    ]
+  },
+  {
+    category: "ETHGlobal",
+    icon: <Activity className="w-5 h-5 text-indigo-600" />,
+    items: [
+      { name: "ETHGlobal Pioneer", points: "10 pts", desc: "Verifies ownership of ETHGlobal Pioneer Pack NFT." },
+      { name: "ETHGlobal OG", points: "40 pts", desc: "Verifies speaker/judge status (OG Pack NFT)." },
+      { name: "ETHGlobal Partner", points: "12 pts", desc: "Verifies partner status (Partner Pack NFT)." },
+      { name: "ETHGlobal Hacker", points: "12 pts", desc: "Verifies participation (Hacker Pack NFT)." },
+      { name: "ETHGlobal Builder", points: "20 pts", desc: "Verifies seasoned hacker status (Builder Pack NFT)." },
+      { name: "ETHGlobal Finalist", points: "10 pts", desc: "Verifies finalist status (Finalist Pack NFT)." },
+      { name: "ETHGlobal Supporter", points: "12 pts", desc: "Verifies mentor/volunteer status (Supporter Pack NFT)." },
     ]
   },
   {
     category: "Farcaster",
     icon: <Activity className="w-5 h-5 text-purple-500" />,
     items: [
-      { name: "Developer Rewards", points: "40 pts", desc: "USDC earned (top 25 mini apps)." },
-      { name: "Account Age", points: "6 pts", desc: "Account creation date." },
-      { name: "Creator Rewards", points: "24 pts", desc: "USDC earned (top accounts)." },
-      { name: "Farcon NYC 2025", points: "12 pts", desc: "Attendance ticket NFT." },
+      { name: "Developer Rewards", points: "40 pts", desc: "Checks USDC earned (top 25 mini apps)." },
+      { name: "Account Age", points: "6 pts", desc: "Verifies Farcaster account creation date." },
+      { name: "Creator Rewards", points: "24 pts", desc: "Checks USDC earned (top accounts)." },
+      { name: "Farcon NYC 2025", points: "12 pts", desc: "Proves attendance at Farcon NYC 2025." },
+    ]
+  },
+  {
+    category: "Lens",
+    icon: <Target className="w-5 h-5 text-lime-600" />,
+    items: [
+      { name: "Lens Account Age", points: "6 pts", desc: "Verifies Lens account creation date." },
+    ]
+  },
+  {
+    category: "Optimism",
+    icon: <Target className="w-5 h-5 text-red-600" />,
+    items: [
+      { name: "Super Account Score", points: "15 pts", desc: "Verifies user's Super Account Score." },
+    ]
+  },
+  {
+    category: "Scroll",
+    icon: <Database className="w-5 h-5 text-amber-600" />,
+    items: [
+      { name: "Hackathons Participation", points: "20 pts", desc: "Proves participation in Scroll Hackathons." },
     ]
   },
   {
     category: "Talent Protocol",
     icon: <Shield className="w-5 h-5 text-purple-600" />,
     items: [
-      { name: "TALENT Balance", points: "8 pts", desc: "Current TALENT balance on Base." },
-      { name: "Account Age", points: "6 pts", desc: "Talent Protocol account age." },
-      { name: "Human Checkmark", points: "20 pts", desc: "Identity verification completion." },
-      { name: "TALENT Vault", points: "8 pts", desc: "Total amount staked." },
-      { name: "Builder Member", points: "6 pts", desc: "Active Builder membership." },
-      { name: "Verified Builder", points: "20 pts", desc: "Registry of Onchain Builders status." },
-    ]
-  },
-  {
-    category: "Other Integrations",
-    icon: <Target className="w-5 h-5 text-emerald-600" />,
-    items: [
-      { name: "ENS Account Age", points: "6 pts", desc: "First ENS domain registration." },
-      { name: "X/Twitter Age", points: "4 pts", desc: "Account creation date." },
-      { name: "Lens Account Age", points: "6 pts", desc: "Account creation date." },
-      { name: "Optimism Super Score", points: "15 pts", desc: "User's Super Account Score." },
-      { name: "Scroll Hackathons", points: "20 pts", desc: "Participation in Scroll Hackathons." },
-      { name: "Celo Builder", points: "88 pts", desc: "Rewards (30), Endorsements (8), Participation (20), Score (30)." },
-      { name: "BuidlGuidl", points: "44 pts", desc: "Challenges (24), Batches (20)." },
-      { name: "ETHGlobal", points: "116 pts", desc: "Hackathons, Packs, Finalist status." },
-      { name: "Devfolio", points: "50 pts", desc: "Hackathon participation (20) and wins (30)." },
-      { name: "Encode", points: "50 pts", desc: "Programmes participation (20) and wins (30)." },
-      { name: "Developer DAO", points: "20 pts", desc: "OG Status (12) or CODE tokens (8)." },
+      { name: "$TALENT Balance", points: "8 pts", desc: "Verifies current $TALENT balance on Base." },
+      { name: "Account Age", points: "6 pts", desc: "Verifies Talent Protocol account creation date." },
+      { name: "Human Checkmark", points: "20 pts", desc: "Proves completion of identity verification." },
+      { name: "$TALENT Vault", points: "8 pts", desc: "Verifies total $TALENT staked in Vault." },
+      { name: "Builder+ Member", points: "6 pts", desc: "Proves active Builder+ membership." },
+      { name: "Verified Onchain Builder", points: "20 pts", desc: "Proves verification by trusted org in Registry." },
     ]
   }
 ];
@@ -239,9 +336,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
         shareUrl += `&address=${scoreData.address}`;
     }
 
-    const text = `My Base Builder Score is ${scoreData.score.points} points!
-
-Check yours here:`;
+    const text = `My Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
 
     try {
       await sdkRef.current.actions.composeCast({ 
@@ -425,7 +520,7 @@ Check yours here:`;
                 </div>
               </div>
 
-              {/* Share Buttons (Should be visible now) */}
+              {/* Share Buttons (Visible without scroll) */}
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handleShare}
@@ -485,24 +580,58 @@ Check yours here:`;
                 <ChevronDown className="w-4 h-4" />
               </div>
             </button>
-             {/* Toggle Content */}
+             
+             {/* UPDATED CORE CONCEPTS CONTENT */}
             {showConcepts && (
               <div className="mt-2 space-y-4 animate-in slide-in-from-top-2 duration-300 ease-out origin-top">
-                <div className="prose prose-sm max-w-none text-slate-600 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 text-xs">
-                  <p className="mb-4 leading-relaxed">Talent Protocol tracks builder activity across blockchains...</p>
-                   <div className="grid grid-cols-1 gap-2">
-                    <InfoItem icon={<User className="w-3 h-3 text-emerald-500"/>} title="Profile" desc="Unified identity." />
-                    <InfoItem icon={<Shield className="w-3 h-3 text-purple-500"/>} title="User" desc="Verified individual." />
-                    <InfoItem icon={<Database className="w-3 h-3 text-amber-500"/>} title="Data Point" desc="Verified facts." />
-                    <InfoItem icon={<Activity className="w-3 h-3 text-pink-500"/>} title="Score" desc="Numerical reputation." />
+                <div className="prose prose-sm max-w-none text-slate-600 bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-xs">
+                  
+                  {/* Intro */}
+                  <div className="mb-5">
+                    <h4 className="font-bold text-slate-900 text-sm mb-2">What is Talent Protocol?</h4>
+                    <p className="leading-relaxed mb-3">
+                      Talent Protocol tracks builder activity across blockchains, GitHub, Twitter, and more to calculate reputation scores that help ecosystems reward real contributors.
+                    </p>
+                    <div className="grid grid-cols-1 gap-1.5 text-[11px]">
+                      <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div><span><strong>Builders</strong> get rewarded for shipping apps</span></div>
+                      <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div><span><strong>Creators</strong> get rewarded for content</span></div>
+                    </div>
                   </div>
+
+                  {/* Use Cases */}
+                  <div className="mb-5 pb-3 border-b border-slate-100">
+                    <h4 className="font-bold text-slate-900 text-sm mb-2">What Can You Build?</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                         <Shield className="w-3 h-3 text-blue-500 mt-0.5 shrink-0" />
+                         <div><strong className="text-slate-800">Identity & Auth:</strong> Add reputation context (e.g. Basenames)</div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                         <Search className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
+                         <div><strong className="text-slate-800">Search:</strong> Find top builders (e.g. Talent App)</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Terminology */}
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm mb-2">How Reputation Works</h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      <InfoItem icon={<User className="w-3 h-3 text-blue-600"/>} title="Reputation Identity" desc="Your unified onchain identity aggregating all verified data." />
+                      <InfoItem icon={<Shield className="w-3 h-3 text-purple-600"/>} title="Verified Builder" desc="A real human who has connected their identity." />
+                      <InfoItem icon={<Database className="w-3 h-3 text-emerald-600"/>} title="Connected Sources" desc="Linked accounts (GitHub, Wallet, X) providing data." />
+                      <InfoItem icon={<CheckCircle2 className="w-3 h-3 text-amber-600"/>} title="Verified Credentials" desc="Proven facts (stars, txs) verified via API." />
+                      <InfoItem icon={<Activity className="w-3 h-3 text-pink-600"/>} title="Reputation Score" desc="Numerical score calculated from credentials." />
+                    </div>
+                  </div>
+
                 </div>
               </div>
             )}
           </div>
         </main>
 
-        {/* Improvement Guide Modal */}
+        {/* Improvement Guide Modal (Updated with full data) */}
         {showImproveGuide && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
              <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
@@ -513,12 +642,18 @@ Check yours here:`;
                 <div className="overflow-y-auto p-6 space-y-8 bg-slate-50/50">
                   {SCORINGDATA.map((cat) => (
                      <div key={cat.category} className="bg-white p-5 rounded-2xl shadow-sm">
-                        <h3 className="font-bold text-slate-800 mb-3">{cat.category}</h3>
+                        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                            {cat.icon}
+                            {cat.category}
+                        </h3>
                         <div className="grid gap-3 sm:grid-cols-2">
                             {cat.items.map(item => (
-                                <div key={item.name} className="p-3 bg-slate-50 rounded-xl">
-                                    <div className="flex justify-between"><span className="font-bold text-sm">{item.name}</span><span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded">{item.points}</span></div>
-                                    <p className="text-xs text-slate-500 mt-1">{item.desc}</p>
+                                <div key={item.name} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="font-bold text-sm text-slate-800">{item.name}</span>
+                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium whitespace-nowrap ml-2">{item.points}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
                                 </div>
                             ))}
                         </div>
@@ -529,7 +664,7 @@ Check yours here:`;
           </div>
         )}
 
-        {/* Subtle Donate Button - Bottom Left */}
+        {/* Subtle Donate Button */}
         <div className="fixed bottom-6 left-6 z-50">
           <button 
             onClick={handleDonate}
@@ -551,7 +686,7 @@ function InfoItem({ icon, title, desc }: { icon: React.ReactNode, title: string,
   return (
     <div className="flex items-start gap-3.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
       <div className="mt-0.5 shrink-0 bg-white p-1.5 rounded-lg border border-slate-100 shadow-sm">{icon}</div>
-      <div><h5 className="font-bold text-slate-800 text-xs uppercase tracking-wide mb-1">{title}</h5><p className="text-xs text-slate-500 font-medium">{desc}</p></div>
+      <div><h5 className="font-bold text-slate-800 text-xs uppercase tracking-wide mb-1">{title}</h5><p className="text-xs text-slate-500 font-medium leading-relaxed">{desc}</p></div>
     </div>
   );
 }
