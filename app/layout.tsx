@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 
 const APP_URL = "https://builderscore.vercel.app";
 
-// Define the Embed JSON structure once
 const embedMetadata = JSON.stringify({
   version: "next",
   imageUrl: `${APP_URL}/hero.png`,
@@ -38,10 +37,9 @@ export const metadata: Metadata = {
     locale: 'en_US',
     type: 'website',
   },
-  // Custom tags for Farcaster Mini Apps
   other: {
     "fc:miniapp": embedMetadata,
-    "fc:frame": embedMetadata, // For backward compatibility
+    "fc:frame": embedMetadata,
   },
 };
 

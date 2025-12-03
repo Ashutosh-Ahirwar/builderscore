@@ -8,6 +8,9 @@ import {
   BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2
 } from 'lucide-react';
 
+// --- Configuration ---
+const APP_URL = "https://builderscore.vercel.app";
+
 // --- Types ---
 interface BuilderScore {
   score: {
@@ -172,8 +175,8 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const handleShare = async () => {
     if (!scoreData || !basename) return;
 
-    const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const shareUrl = `${appUrl}/?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position}`;
+    // Use hardcoded production URL to ensure the share link is valid for Farcaster
+    const shareUrl = `${APP_URL}/?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position}`;
     
     const text = `I just checked my Base Builder Score: ${scoreData.score.points} points! 🏗️\n\nCheck yours here:`;
 

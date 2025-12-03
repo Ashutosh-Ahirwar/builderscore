@@ -5,6 +5,9 @@ type Props = {
   searchParams: { [key: string]: string | string[] | undefined }
 }
 
+// Use the production URL for all initial metadata to avoid localhost issues
+const APP_URL = "https://builderscore.vercel.app";
+
 export async function generateMetadata(
   { searchParams }: Props,
   parent: ResolvingMetadata
@@ -13,17 +16,35 @@ export async function generateMetadata(
   const score = typeof searchParams.score === 'string' ? searchParams.score : undefined;
   const rank = typeof searchParams.rank === 'string' ? searchParams.rank : undefined;
 
-  // Default metadata
+  // 1. Default State (Landing Page)
+  // Use static hero.png for the initial embed view
   let title = "Base Builder Score";
   let description = "Check your onchain reputation on Base";
-  let images = ["/api/og"]; // Default generic image
+  let imageUrl = `${APP_URL}/hero.png`;
 
-  // Dynamic metadata if sharing a specific score
+  // 2. Dynamic State (Shared Link)
+  // Only switch to dynamic generation if we have the necessary data
   if (name && score) {
     title = `${name}'s Builder Score: ${score}`;
     description = `Ranked #${rank || 'N/A'}. Check your score now!`;
-    images = [`/api/og?name=${name}&score=${score}&rank=${rank}`];
+    imageUrl = `${APP_URL}/api/og?name=${encodeURIComponent(name)}&score=${score}&rank=${rank}`;
   }
+
+  // Construct the Frame Metadata
+  const frameMetadata = JSON.stringify({
+    version: "next",
+    imageUrl: imageUrl, 
+    button: {
+      title: "Check Your Score",
+      action: {
+        type: "launch_frame",
+        name: "Base Builder Score",
+        url: APP_URL, 
+        splashImageUrl: `${APP_URL}/splash.png`,
+        splashBackgroundColor: "#1e293b"
+      }
+    }
+  });
 
   return {
     title: title,
@@ -31,23 +52,10 @@ export async function generateMetadata(
     openGraph: {
       title: title,
       description: description,
-      images: images,
+      images: [imageUrl],
     },
     other: {
-      "fc:frame": JSON.stringify({
-        version: "next",
-        imageUrl: images[0],
-        button: {
-          title: "Check Your Score",
-          action: {
-            type: "launch_frame",
-            name: "Base Builder Score",
-            url: process.env.NEXT_PUBLIC_APP_URL || "https://base-builder-score.vercel.app", // Fallback URL
-            splashImageUrl: "https://talentprotocol.com/icon.png", // Optional splash
-            splashBackgroundColor: "#1e293b"
-          }
-        }
-      })
+      "fc:frame": frameMetadata
     }
   };
 }
