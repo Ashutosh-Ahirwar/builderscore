@@ -144,22 +144,30 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
 
   // FIX: Ensure ready() is called reliably when the component mounts
   useEffect(() => {
-    const initSdk = async () => {
+    const callReadyIfAvailable = () => {
       // Check for global 'sdk' object availability
       // @ts-ignore
       if (typeof sdk !== 'undefined' && sdk.actions && sdk.actions.ready) { 
         try {
           // Call ready() immediately when component mounts and SDK object is available
-          await sdk.actions.ready();
+          // @ts-ignore
+          sdk.actions.ready();
+          return true; // Success
         } catch (err) {
           console.error('Failed to call sdk.actions.ready():', err);
+          return false;
         }
-      } else {
-        // Fallback for extremely slow environments: try again after a delay
-        setTimeout(initSdk, 500); 
       }
+      return false; // Not yet available
     };
-    initSdk();
+
+    if (!callReadyIfAvailable()) {
+        // If not immediately available, try again after a small delay (100ms)
+        const timer = setTimeout(() => {
+            callReadyIfAvailable();
+        }, 100); 
+        return () => clearTimeout(timer); // Cleanup timer if component unmounts
+    }
   }, []);
 
   const handleCheckScore = async (e: React.FormEvent) => {
