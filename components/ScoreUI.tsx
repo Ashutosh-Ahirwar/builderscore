@@ -352,30 +352,59 @@ Check yours here:`;
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    if (sdkRef.current) {
+    // 1. Get the SDK instance (Lazy load if ref is null)
+    let sdk = sdkRef.current;
+    
+    if (!sdk) {
+        try {
+            // Dynamically import if not ready yet
+            const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
+            sdk = importedSdk;
+            sdkRef.current = sdk;
+        } catch (e) {
+            console.error("Failed to load SDK dynamically", e);
+        }
+    }
+
+    // 2. Check if we are in the Farcaster Context
+    // If 'sdk' exists, try to send the transaction
+    if (sdk) {
         try {
             console.log("Attempting SDK sendToken...");
-            // Wei Value for 0.0005 ETH
-            await sdkRef.current.actions.sendToken({
-                chainId: 8453, 
+            
+            // 3. TRIGGER TRANSACTION
+            const result = await sdk.actions.sendToken({
+                chainId: 8453, // Base Mainnet
                 to: DONATIONADDRESS,
-                amount: "500000000000000", 
+                amount: "500000000000000", // 0.0005 ETH in Wei (must be string)
                 token: {
                    chainId: 8453,
-                   address: "0x0000000000000000000000000000000000000000", // Sentinel
+                   address: "0x0000000000000000000000000000000000000000", // Native ETH
                    symbol: "ETH",
                    decimals: 18
                 }
             });
-            return; 
+            
+            console.log("Transaction prompted successfully", result);
+            return; // STOP here if successful. Do not show copy fallback.
+
         } catch (e: any) {
-            console.error("SDK sendToken failed:", e);
+            console.error("SDK sendToken failed or rejected:", e);
+
+            // 4. Handle Rejection Specially
+            // If the user clicked "Cancel" in the wallet, we simply stop.
+            // We do NOT want to fallback to copying the address in this case.
             if (JSON.stringify(e).toLowerCase().includes("reject") || e.code === 4001) {
-                 return;
+                 return; 
             }
+            
+            // If it failed for another reason (e.g. not in Warpcast), we let it fall through to Step 5.
         }
     }
 
+    // 5. FALLBACK: Copy Address (Only runs if SDK is missing or sendToken failed technically)
+    // This handles Desktop browsers where the SDK action doesn't exist.
+    console.log("Falling back to clipboard copy...");
     const textArea = document.createElement("textarea");
     textArea.value = DONATIONADDRESS;
     textArea.style.position = "fixed"; 
@@ -390,7 +419,7 @@ Check yours here:`;
       console.error('Fallback copy failed', err);
     }
     document.body.removeChild(textArea);
-  };
+};
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
