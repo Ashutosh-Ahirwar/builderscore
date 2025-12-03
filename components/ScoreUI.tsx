@@ -8,15 +8,12 @@ import {
   BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2, CornerUpRight
 } from 'lucide-react';
 
-// DECLARE GLOBAL SDK TYPE TO SATISFY TYPESCRIPT
-declare var sdk: any;
-
 // --- Configuration ---
 const APP_URL = "https://builderscore.vercel.app";
 const DONATION_ADDRESS = "0xa6DEe9FdE9E1203ad02228f00bF10235d9Ca3752";
 
 // Helper function to get Farcaster SDK instance (fallback for missing import)
-// We rely on the global 'sdk' object being injected by the Farcaster client.
+// Assumes 'sdk' is exposed globally or attempts to load the package dynamically
 const getSdk = () => {
     // @ts-ignore
     return typeof sdk !== 'undefined' ? sdk : {
@@ -145,21 +142,21 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   // FIX: Ensure ready() is called reliably when the component mounts
   useEffect(() => {
     const initSdk = async () => {
-      // Check for global 'sdk' object availability
+      const sdkInstance = getSdk();
+      // Only call ready if the SDK is actually defined (not the dummy object)
+      // We check for the presence of the 'context' property which is usually absent in the dummy fallback
       // @ts-ignore
-      if (typeof sdk !== 'undefined' && sdk.actions && sdk.actions.ready) { 
+      if (typeof sdk !== 'undefined' && sdk.actions) { 
         try {
-          // Call ready() immediately when component mounts and SDK object is available
-          await sdk.actions.ready();
+          await sdkInstance.actions.ready();
         } catch (err) {
           console.error('Failed to call sdk.actions.ready():', err);
         }
-      } else {
-        // Fallback for extremely slow environments: try again after a delay
-        setTimeout(initSdk, 500); 
       }
     };
-    initSdk();
+    // Use a small timeout to allow the Farcaster client environment to fully initialize the SDK object
+    const timer = setTimeout(initSdk, 100); 
+    return () => clearTimeout(timer);
   }, []);
 
   const handleCheckScore = async (e: React.FormEvent) => {
