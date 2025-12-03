@@ -336,7 +336,9 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
         shareUrl += `&address=${scoreData.address}`;
     }
 
-    const text = `My Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
+    const text = `My Base Builder Score is ${scoreData.score.points} points!
+
+Check yours here:`;
 
     try {
       await sdkRef.current.actions.composeCast({ 
