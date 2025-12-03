@@ -137,13 +137,18 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const handleAddMiniApp = useCallback(async () => {
     const sdkInstance = getSdk();
     try {
-      await sdkInstance.actions.addMiniApp();
-      // ADD THIS: Hide button after successful add
-      setIsAdded(true); 
+      const result = await sdkInstance.actions.addMiniApp();
+      
+      // Only hide if the result indicates success or if you want to optimistically hide it
+      // Based on your description, it seems you want it to prompt first.
+      if (result.success) {
+         setIsAdded(true);
+      }
     } catch (e) {
       console.error("Failed to add mini app manually", e);
     }
 }, []);
+
 
 
   
@@ -188,13 +193,23 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
 
     // Prompt to add MiniApp on search interaction
     try {
-      const context = await sdkInstance.context;
-      // @ts-ignore
-      if (context && context.client && !context.client.added) {
-         await sdkInstance.actions.addMiniApp();
-      }
-    } catch (e) {
-      console.log('User skipped adding app or error:', e);
+        // Ensure we have the context
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        const context = await sdk.context;
+
+        if (context?.client && !context.client.added) {
+            try {
+                await sdk.actions.addMiniApp();
+                // Optionally update state if they add it here
+                setIsAdded(true);
+            } catch (addError) {
+                console.log("User skipped adding app or error", addError);
+                // Decide if you want to stop here or continue searching anyway. 
+                // Usually, you continue searching even if they decline.
+            }
+        }
+    } catch (contextError) {
+        console.error("Error checking context:", contextError);
     }
 
     try {
