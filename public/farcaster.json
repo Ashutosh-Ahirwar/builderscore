@@ -4,11 +4,10 @@
     "version": "1",
     "iconUrl": "https://builderscore.vercel.app/icon.png",
     "homeUrl": "https://builderscore.vercel.app",
-    "imageUrl": "https://builderscore.vercel.app/hero.png",
-    "buttonTitle": "Check Score",
-    "splashImageUrl": "https://builderscore.vercel.app/splash.png",
+    "buttonTitle": "Check Builder Score",
+    "splashImageUrl": "https://builderscore.vercel.app/hero.png",
     "splashBackgroundColor": "#1e293b",
-    "webhookUrl": "https://builderscore.vercel.app/api/webhook",
+    "webhookUrl": "https://builderscore.vercel.app/api/webhooks",
     "subtitle": "Onchain Reputation on Base",
     "description": "Check your Base Builder Score based on onchain activity, GitHub contributions, and ecosystem participation.",
     "screenshotUrls": [
@@ -34,7 +33,7 @@
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjEzNzEyODgsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg4NGM0N0JDNDBhNDY4MGI5QjFjM2I2YUY3ZkZjYjg4ODhkYzBEMzU3In0",
-    "payload": "eyJkb21haW4iOiJidWlsZGVyc2NvcmUudmVyY2VsLmFwcCJ9",
-    "signature": "DSuqiTAmQXrQ3Jxykivk8S5uZnv9pGMo8Xq9plf9avQzp2yHbo8wXZc55EFbHjUJ1DPDGfsMxjJ6Tyv0LWEgkhs="
+    "payload": "eyJkb21haW4iOiIifQ",
+    "signature": "x4T0QEBuXHYL7D51IHOh8Av686a+zgZGermWG+SrJwAseFBbPc/m8BmvWbqndGNfWMYOVNl+AKsxE71fMTQSWhw="
   }
 }
