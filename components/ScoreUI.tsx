@@ -27,10 +27,8 @@ interface ScoreUIProps {
   initialScoreData?: BuilderScore | null;
 }
 
-// --- Data (Truncated for brevity, same as before) ---
+// --- Data ---
 const SCORINGDATA = [
-  // ... (Keep your existing SCORINGDATA array here) ...
-  // For brevity I am not repeating the full array, but make sure to include it!
   {
     category: "Onchain Activity",
     icon: <Activity className="w-5 h-5 text-blue-500" />,
@@ -216,8 +214,9 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     if (!scoreData || !basename) return;
     if (!sdkRef.current) return;
 
-    // This URL includes the params needed for the dynamic OG image
-    const shareUrl = `${APPURL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'N/A'}`;
+    // ADDED: timestamp to bust cache and force Farcaster to fetch the dynamic image
+    const timestamp = Date.now(); 
+    const shareUrl = `${APPURL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'N/A'}&t=${timestamp}`;
     
     const text = `My Base Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
 
@@ -233,40 +232,37 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    // 1. Try using Mini App SDK Action
+    // 1. Try using Mini App SDK Action with WEI value
     if (sdkRef.current) {
         try {
             console.log("Attempting to send token via SDK...");
+            // 0.0005 ETH = 500,000,000,000,000 Wei
             const result = await sdkRef.current.actions.sendToken({
                 chainId: 8453, // Base Mainnet
                 to: DONATIONADDRESS,
-                amount: "500000000000000", // 0.0005 ETH in Wei (string)
+                amount: "500000000000000", 
                 token: {
-                   // For native ETH, you typically provide the chain's native currency details
-                   // or omit the address field depending on SDK version. 
-                   // If the SDK expects an address for ERC20, leaving it undefined implies native.
                    chainId: 8453,
-                   address: "0x0000000000000000000000000000000000000000", // Sentinel for native ETH often used
+                   address: "0x0000000000000000000000000000000000000000", // Native ETH Sentinel
                    symbol: "ETH",
                    decimals: 18
                 }
             });
             
             console.log("Transaction result:", result);
-            return; // Success! Exit function.
+            return; // Success, don't fallback
             
-        } catch (e) {
+        } catch (e: any) {
             console.error("SDK sendToken failed:", e);
-            // Check if error is "User rejected" - if so, don't do fallback
-            // The error object structure depends on the specific SDK error implementation
-            // but usually contains 'rejected' or code 4001
-            if (JSON.stringify(e).toLowerCase().includes("reject")) {
+            
+            // Stop if user rejected. Don't show copy fallback.
+            if (e && (e.code === 4001 || JSON.stringify(e).toLowerCase().includes("reject"))) {
                  return;
             }
         }
     }
 
-    // 2. Fallback: Copy Address (Only if SDK is missing or non-rejection error)
+    // 2. Fallback: Copy Address (Only if SDK fails for non-rejection reasons)
     console.log("Falling back to copy address...");
     const textArea = document.createElement("textarea");
     textArea.value = DONATIONADDRESS;
