@@ -326,8 +326,14 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
 
     const timestamp = Date.now();
     
-    // Construct share URL
-    let shareUrl = `${APPURL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'NaN'}&t=${timestamp}`;
+    // Ensure lowercase and append .base.eth if missing
+    let displayName = basename.toLowerCase().trim();
+    if (!displayName.endsWith('.base.eth')) {
+        displayName += '.base.eth';
+    }
+    
+    // Construct share URL using the corrected displayName
+    let shareUrl = `${APPURL}?name=${encodeURIComponent(displayName)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'NaN'}&t=${timestamp}`;
     
     // Add PFP or Address for the generator
     if (userPfp) {
@@ -337,6 +343,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     }
 
     const text = `My Base Builder Score is ${scoreData.score.points} points!
+
 
 Check yours here:`;
 
@@ -348,7 +355,7 @@ Check yours here:`;
     } catch (e) {
       console.error("Error launching compose cast", e);
     }
-  };
+};
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
