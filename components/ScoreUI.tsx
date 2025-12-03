@@ -27,7 +27,7 @@ interface ScoreUIProps {
   initialScoreData?: BuilderScore | null;
 }
 
-// --- Data ---
+// --- Data (Same as before) ---
 const SCORINGDATA = [
   {
     category: "Onchain Activity",
@@ -127,7 +127,9 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     let cancelled = false;
     const initSdk = async () => {
       try {
+        // Destructure sdk from the module
         const { sdk } = await import("@farcaster/miniapp-sdk");
+        
         if (cancelled) return;
         
         sdkRef.current = sdk;
@@ -167,8 +169,10 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     setError(null);
     setScoreData(null);
 
+    // Check context and prompt add
     try {
       let sdk = sdkRef.current;
+      // Fallback if ref is empty (rare if loaded)
       if (!sdk) {
          const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
          sdk = importedSdk;
@@ -190,6 +194,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
         console.error("Error checking context:", contextError);
     }
 
+    // Fetch Score
     try {
       const response = await fetch(`/api/builder-score?name=${encodeURIComponent(basename)}`);
       const data = await response.json();
@@ -214,8 +219,8 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     if (!scoreData || !basename) return;
     if (!sdkRef.current) return;
 
-    // ADDED: timestamp to bust cache and force Farcaster to fetch the dynamic image
-    const timestamp = Date.now(); 
+    // Use timestamp to bust cache for the share image
+    const timestamp = Date.now();
     const shareUrl = `${APPURL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'N/A'}&t=${timestamp}`;
     
     const text = `My Base Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
@@ -232,37 +237,39 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    // 1. Try using Mini App SDK Action with WEI value
+    // 1. Try SDK Action
     if (sdkRef.current) {
         try {
-            console.log("Attempting to send token via SDK...");
-            // 0.0005 ETH = 500,000,000,000,000 Wei
-            const result = await sdkRef.current.actions.sendToken({
-                chainId: 8453, // Base Mainnet
+            console.log("Attempting SDK sendToken...");
+            // Amount in Wei: 0.0005 ETH = 500000000000000
+            await sdkRef.current.actions.sendToken({
+                chainId: 8453, // Base
                 to: DONATIONADDRESS,
                 amount: "500000000000000", 
                 token: {
                    chainId: 8453,
-                   address: "0x0000000000000000000000000000000000000000", // Native ETH Sentinel
+                   address: "0x0000000000000000000000000000000000000000", // Native ETH
                    symbol: "ETH",
                    decimals: 18
                 }
             });
-            
-            console.log("Transaction result:", result);
-            return; // Success, don't fallback
-            
+            // If we get here, the prompt launched successfully.
+            return; 
         } catch (e: any) {
             console.error("SDK sendToken failed:", e);
             
-            // Stop if user rejected. Don't show copy fallback.
-            if (e && (e.code === 4001 || JSON.stringify(e).toLowerCase().includes("reject"))) {
+            // Detect rejection (user clicked cancel)
+            // We do NOT want to fallback to copy in this case.
+            const errStr = JSON.stringify(e).toLowerCase();
+            if (errStr.includes("reject") || e.code === 4001) {
                  return;
             }
+            // If it's NOT a rejection (e.g. SDK error), we might want to fallback.
+            // Continue execution below...
         }
     }
 
-    // 2. Fallback: Copy Address (Only if SDK fails for non-rejection reasons)
+    // 2. Fallback: Copy Address
     console.log("Falling back to copy address...");
     const textArea = document.createElement("textarea");
     textArea.value = DONATIONADDRESS;

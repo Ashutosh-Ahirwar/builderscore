@@ -1,8 +1,9 @@
 import { Metadata, ResolvingMetadata } from 'next';
 import ScoreUI from '../components/ScoreUI';
 
+// In Next.js 15+, searchParams is a Promise
 type Props = {
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 // Use the production URL for all initial metadata to avoid localhost issues
@@ -12,34 +13,36 @@ export async function generateMetadata(
   { searchParams }: Props,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const name = typeof searchParams.name === 'string' ? searchParams.name : undefined;
-  const score = typeof searchParams.score === 'string' ? searchParams.score : undefined;
-  const rank = typeof searchParams.rank === 'string' ? searchParams.rank : undefined;
+  // FIX: Await the params first!
+  const resolvedParams = await searchParams;
+  
+  const name = typeof resolvedParams.name === 'string' ? resolvedParams.name : undefined;
+  const score = typeof resolvedParams.score === 'string' ? resolvedParams.score : undefined;
+  const rank = typeof resolvedParams.rank === 'string' ? resolvedParams.rank : undefined;
 
   // 1. Default State (Landing Page)
-  // Use static hero.png for the initial embed view
   let title = "Base Builder Score";
   let description = "Check your onchain reputation on Base";
   let imageUrl = `${APP_URL}/hero.png`;
 
   // 2. Dynamic State (Shared Link)
-  // Only switch to dynamic generation if we have the necessary data
   if (name && score) {
     title = `${name}'s Builder Score: ${score}`;
     description = `Ranked #${rank || 'N/A'}. Check your score now!`;
+    // Add timestamp to bust cache if needed, or rely on unique name/score combos
     imageUrl = `${APP_URL}/api/og?name=${encodeURIComponent(name)}&score=${score}&rank=${rank}`;
   }
 
   // Construct the Frame Metadata
   const frameMetadata = JSON.stringify({
     version: "next",
-    imageUrl: imageUrl, 
+    imageUrl: imageUrl,
     button: {
       title: "Check Your Score",
       action: {
         type: "launch_frame",
         name: "Base Builder Score",
-        url: APP_URL, 
+        url: APP_URL,
         splashImageUrl: `${APP_URL}/splash.png`,
         splashBackgroundColor: "#1e293b"
       }
@@ -60,7 +63,10 @@ export async function generateMetadata(
   };
 }
 
-export default function Page({ searchParams }: Props) {
-  const initialBasename = typeof searchParams.name === 'string' ? searchParams.name : undefined;
+export default async function Page({ searchParams }: Props) {
+  // FIX: Await params here too
+  const resolvedParams = await searchParams;
+  const initialBasename = typeof resolvedParams.name === 'string' ? resolvedParams.name : undefined;
+  
   return <ScoreUI initialBasename={initialBasename} />;
 }
