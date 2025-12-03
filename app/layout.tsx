@@ -19,6 +19,7 @@ const embedMetadata = JSON.stringify({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: 'Base Builder Score',
   description: 'Check your onchain reputation on Base',
   openGraph: {

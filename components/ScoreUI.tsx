@@ -233,22 +233,41 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    // Try using Mini App SDK for smooth UX first
+    // 1. Try using Mini App SDK Action
     if (sdkRef.current) {
         try {
-            await sdkRef.current.actions.sendToken({
-                token: "ETH",
-                amount: "0.0005",
-                recipientAddress: DONATIONADDRESS,
-                chainId: 8453 // Base Mainnet
+            console.log("Attempting to send token via SDK...");
+            const result = await sdkRef.current.actions.sendToken({
+                chainId: 8453, // Base Mainnet
+                to: DONATIONADDRESS,
+                amount: "500000000000000", // 0.0005 ETH in Wei (string)
+                token: {
+                   // For native ETH, you typically provide the chain's native currency details
+                   // or omit the address field depending on SDK version. 
+                   // If the SDK expects an address for ERC20, leaving it undefined implies native.
+                   chainId: 8453,
+                   address: "0x0000000000000000000000000000000000000000", // Sentinel for native ETH often used
+                   symbol: "ETH",
+                   decimals: 18
+                }
             });
-            return; // Exit if prompt was launched
+            
+            console.log("Transaction result:", result);
+            return; // Success! Exit function.
+            
         } catch (e) {
-            console.log("Send token action failed or cancelled, falling back to copy.", e);
+            console.error("SDK sendToken failed:", e);
+            // Check if error is "User rejected" - if so, don't do fallback
+            // The error object structure depends on the specific SDK error implementation
+            // but usually contains 'rejected' or code 4001
+            if (JSON.stringify(e).toLowerCase().includes("reject")) {
+                 return;
+            }
         }
     }
 
-    // Fallback to Copy Address
+    // 2. Fallback: Copy Address (Only if SDK is missing or non-rejection error)
+    console.log("Falling back to copy address...");
     const textArea = document.createElement("textarea");
     textArea.value = DONATIONADDRESS;
     textArea.style.position = "fixed"; 
