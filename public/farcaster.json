@@ -1,0 +1,40 @@
+{
+  "frame": {
+    "name": "Base Builder Score",
+    "version": "1",
+    "iconUrl": "https://builderscore.vercel.app/icon.png",
+    "homeUrl": "https://builderscore.vercel.app",
+    "imageUrl": "https://builderscore.vercel.app/hero.png",
+    "buttonTitle": "Check Score",
+    "splashImageUrl": "https://builderscore.vercel.app/splash.png",
+    "splashBackgroundColor": "#1e293b",
+    "webhookUrl": "https://builderscore.vercel.app/api/webhook",
+    "subtitle": "Onchain Reputation on Base",
+    "description": "Check your Base Builder Score based on onchain activity, GitHub contributions, and ecosystem participation.",
+    "screenshotUrls": [
+      "https://builderscore.vercel.app/screenshot1.png"
+    ],
+    "primaryCategory": "productivity",
+    "tags": [
+      "base",
+      "builder",
+      "score",
+      "reputation",
+      "farcaster"
+    ],
+    "heroImageUrl": "https://builderscore.vercel.app/hero.png",
+    "tagline": "Reveal your Builder Reputation",
+    "ogTitle": "Base Builder Score",
+    "ogDescription": "Check your onchain reputation and builder score on Base.",
+    "ogImageUrl": "https://builderscore.vercel.app/hero.png",
+    "noindex": false
+  },
+  "baseBuilder": {
+    "ownerAddress": "0xd505989c1d95dEfcaE778475D494F5f51776Fe46"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEzNzEyODgsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg4NGM0N0JDNDBhNDY4MGI5QjFjM2I2YUY3ZkZjYjg4ODhkYzBEMzU3In0",
+    "payload": "eyJkb21haW4iOiJuZXluYXItbHlhcnQudmVyY2VsLmFwcCJ9",
+    "signature": "qdedKwM5HvVzu9BmQgXPub4+vzgNOv5W92gH1kDGoTlwv7LLwDDUphas+8EgbhIKfiqKaNtgh0yt5VFfe99LPxs="
+  }
+}
