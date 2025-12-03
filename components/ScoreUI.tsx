@@ -142,32 +142,30 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     }
   }, []);
 
-  // FIX: Ensure ready() is called reliably when the component mounts
-  useEffect(() => {
-    const callReadyIfAvailable = () => {
-      // Check for global 'sdk' object availability
-      // @ts-ignore
-      if (typeof sdk !== 'undefined' && sdk.actions && sdk.actions.ready) { 
-        try {
-          // Call ready() immediately when component mounts and SDK object is available
-          // @ts-ignore
-          sdk.actions.ready();
-          return true; // Success
-        } catch (err) {
-          console.error('Failed to call sdk.actions.ready():', err);
-          return false;
-        }
+  
+   useEffect(() => {
+    let cancelled = false;
+
+    const initSdk = async () => {
+      try {
+        // Dynamically import to avoid SSR / build issues
+        const { sdk } = await import('@farcaster/miniapp-sdk');
+
+        if (cancelled) return;
+
+        // Officially recommended: call ready() once your UI is ready to show
+        await sdk.actions.ready();
+        console.log('Farcaster Mini App ready() called');
+      } catch (err) {
+        console.error('Failed to initialize Farcaster Mini App SDK:', err);
       }
-      return false; // Not yet available
     };
 
-    if (!callReadyIfAvailable()) {
-        // If not immediately available, try again after a small delay (100ms)
-        const timer = setTimeout(() => {
-            callReadyIfAvailable();
-        }, 100); 
-        return () => clearTimeout(timer); // Cleanup timer if component unmounts
-    }
+    initSdk();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCheckScore = async (e: React.FormEvent) => {
