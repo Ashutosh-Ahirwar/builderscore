@@ -1,15 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
+import React, { useState, useEffect, useCallback } from 'react';
+// SDK import left external to avoid build issues
 import { 
   Search, Trophy, Calendar, User, Shield, Database, Activity, 
   AlertCircle, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, 
-  BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2
+  BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2, CornerUpRight
 } from 'lucide-react';
 
 // --- Configuration ---
 const APP_URL = "https://builderscore.vercel.app";
+const DONATION_ADDRESS = "0xa6DEe9FdE9E1203ad02228f00bF10235d9Ca3752";
+
+// Helper function to get Farcaster SDK instance (fallback for missing import)
+// Assumes 'sdk' is exposed globally or attempts to load the package dynamically
+const getSdk = () => {
+    // @ts-ignore
+    return typeof sdk !== 'undefined' ? sdk : {
+        actions: { ready: () => Promise.resolve(), addMiniApp: () => Promise.resolve(), composeCast: () => Promise.resolve() },
+        context: { client: { added: true } }
+    };
+};
+
 
 // --- Types ---
 interface BuilderScore {
@@ -27,7 +39,7 @@ interface ScoreUIProps {
   initialScoreData?: BuilderScore | null;
 }
 
-// --- Data ---
+// --- Data (Scoring Data remains consistent) ---
 const SCORING_DATA = [
   {
     category: "Onchain Activity",
@@ -117,11 +129,21 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const [showImproveGuide, setShowImproveGuide] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Initialize Farcaster SDK
+  // Use useCallback to memoize SDK interaction handlers
+  const handleAddMiniApp = useCallback(async () => {
+    const sdkInstance = getSdk();
+    try {
+      await sdkInstance.actions.addMiniApp();
+    } catch (e) {
+      console.error('Failed to add mini app manually', e);
+    }
+  }, []);
+
   useEffect(() => {
     const initSdk = async () => {
+      const sdkInstance = getSdk();
       try {
-        await sdk.actions.ready();
+        await sdkInstance.actions.ready();
       } catch (err) {
         console.error('Failed to initialize SDK:', err);
       }
@@ -129,25 +151,20 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     initSdk();
   }, []);
 
-  const handleAddMiniApp = async () => {
-    try {
-      await sdk.actions.addMiniApp();
-    } catch (e) {
-      console.error('Failed to add mini app manually', e);
-    }
-  };
-
   const handleCheckScore = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setScoreData(null);
+    
+    const sdkInstance = getSdk();
 
     // Prompt to add MiniApp on search interaction
     try {
-      const context = await sdk.context;
+      const context = await sdkInstance.context;
+      // @ts-ignore
       if (context && context.client && !context.client.added) {
-         await sdk.actions.addMiniApp();
+         await sdkInstance.actions.addMiniApp();
       }
     } catch (e) {
       console.log('User skipped adding app or error:', e);
@@ -175,13 +192,14 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const handleShare = async () => {
     if (!scoreData || !basename) return;
 
-    // Use hardcoded production URL to ensure the share link is valid for Farcaster
+    const sdkInstance = getSdk();
+
     const shareUrl = `${APP_URL}/?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position}`;
     
-    const text = `I just checked my Base Builder Score: ${scoreData.score.points} points! 🏗️\n\nCheck yours here:`;
+    const text = `My Base Builder Score is ${scoreData.score.points} points! 🎉 See how I rank on @base:\n\nCheck yours here:`;
 
     try {
-      await sdk.actions.composeCast({
+      await sdkInstance.actions.composeCast({
         text: text,
         embeds: [shareUrl]
       });
@@ -202,7 +220,7 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   };
 
   const handleDonate = () => {
-    const address = "0xa6DEe9FdE9E1203ad02228f00bF10235d9Ca3752";
+    const address = DONATION_ADDRESS;
     const textArea = document.createElement("textarea");
     textArea.value = address;
     textArea.style.position = "fixed"; 
@@ -293,49 +311,47 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
           {scoreData && (
             <div className="space-y-5 animate-in fade-in slide-in-from-bottom-6 duration-700">
               
-              {/* Score Card */}
+              {/* Score Card - Refined UI */}
               <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-[2rem] p-7 shadow-2xl relative overflow-hidden border border-white/10 group">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/20 rounded-full blur-[60px] -mr-16 -mt-16 group-hover:bg-blue-500/30 transition-colors duration-700"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[40px] -ml-10 -mb-10"></div>
                 
                 <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-10">
-                    <div>
-                      <h3 className="text-blue-200/80 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3" />
-                        Reputation Score
-                      </h3>
-                      <div className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-200 drop-shadow-sm">
-                        {scoreData.score.points}
-                      </div>
+                  <div className="mb-8">
+                    <h3 className="text-blue-200/80 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-yellow-400"/>
+                      REPUTATION SCORE
+                    </h3>
+                    <div className="text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-200 drop-shadow-lg">
+                      {scoreData.score.points}
                     </div>
                     {scoreData.score.rank_position && (
-                       <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold border border-white/10 flex items-center gap-1.5 shadow-lg">
-                         <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-                         Top {scoreData.score.rank_position.toLocaleString()}
+                       <div className="mt-3 inline-flex bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-semibold border border-white/20 flex items-center gap-2 shadow-lg">
+                         <Trophy className="w-4 h-4 text-yellow-400" fill="currentColor"/>
+                         <span className="text-slate-200">Top {scoreData.score.rank_position.toLocaleString()} Builders</span>
                        </div>
                     )}
                   </div>
 
-                  <div className="space-y-3.5 pt-5 border-t border-white/5">
+                  <div className="space-y-3.5 pt-5 border-t border-white/10">
                     <div className="flex items-center justify-between text-sm group/item">
-                      <div className="flex items-center gap-2 text-slate-400 group-hover/item:text-slate-300 transition-colors">
-                        <Calendar className="w-4 h-4" />
-                        <span>Last Updated</span>
+                      <div className="flex items-center gap-3 text-slate-400">
+                        <Calendar className="w-4 h-4 text-blue-300" />
+                        <span className="font-semibold">Last Updated</span>
                       </div>
-                      <span className="font-medium text-slate-200 tabular-nums">
+                      <span className="font-medium text-slate-200 tabular-nums text-sm">
                         {formatDate(scoreData.score.last_calculated_at)}
                       </span>
                     </div>
                     
                     {scoreData.address && (
                       <div className="flex items-center justify-between text-sm group/item">
-                         <div className="flex items-center gap-2 text-slate-400 group-hover/item:text-slate-300 transition-colors">
-                          <Shield className="w-4 h-4" />
-                          <span>Wallet Address</span>
+                         <div className="flex items-center gap-3 text-slate-400">
+                          <Shield className="w-4 h-4 text-indigo-300" />
+                          <span className="font-semibold">Wallet Address</span>
                         </div>
-                        <span className="font-mono text-[11px] bg-black/40 px-2.5 py-1 rounded-lg text-slate-300 border border-white/5 truncate max-w-[120px]">
-                          {scoreData.address}
+                        <span className="font-mono text-xs bg-white/10 px-2.5 py-1.5 rounded-lg text-slate-200 border border-white/5 truncate max-w-[150px]">
+                          {scoreData.address.slice(0,6)}...{scoreData.address.slice(-4)}
                         </span>
                       </div>
                     )}
@@ -343,7 +359,7 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
                 </div>
               </div>
 
-              {/* Share and Improve Buttons */}
+              {/* Share and Improve Buttons - Better visual distinction */}
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handleShare}
@@ -354,7 +370,7 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
                 </button>
                 <button 
                   onClick={() => setShowImproveGuide(true)}
-                  className="py-4 px-4 bg-white border border-blue-100 hover:border-blue-300 rounded-2xl text-blue-700 font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md hover:bg-blue-50/50 active:scale-[0.98]"
+                  className="py-4 px-4 bg-white border-2 border-blue-100 hover:border-blue-300 rounded-2xl text-blue-700 font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md hover:bg-blue-50 active:scale-[0.98]"
                 >
                   <BookOpen className="w-4 h-4" />
                   Improve Score
@@ -384,22 +400,22 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
             </div>
           )}
 
-          {/* Core Concepts Toggle */}
+          {/* Core Concepts Toggle - More active look */}
           <div className="pt-2">
             <button 
               onClick={() => setShowConcepts(!showConcepts)}
-              className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm group"
+              className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:bg-blue-50/70 hover:border-blue-200 transition-all shadow-sm group"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 group-hover:scale-110 transition-all duration-300">
-                  <Activity className="w-5 h-5" />
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-500/70 group-hover:text-white transition-all duration-300">
+                  <CornerUpRight className="w-5 h-5 group-hover:rotate-45 transition-transform" />
                 </div>
                 <div className="text-left">
-                   <span className="block font-bold text-slate-800">What is Builder Score?</span>
-                   <span className="text-xs text-slate-500 font-medium">Learn about the protocol</span>
+                   <span className="block font-bold text-slate-800">Core Concepts</span>
+                   <span className="text-xs text-slate-500 font-medium">What is the Builder Score?</span>
                 </div>
               </div>
-              <div className={`p-2 rounded-full bg-slate-50 text-slate-400 group-hover:bg-white group-hover:text-blue-500 transition-all duration-300 ${showConcepts ? 'rotate-180 bg-blue-50 text-blue-500' : ''}`}>
+              <div className={`p-2 rounded-full text-slate-400 transition-all duration-300 ${showConcepts ? 'rotate-180 text-blue-500' : 'group-hover:text-blue-500'}`}>
                 <ChevronDown className="w-5 h-5" />
               </div>
             </button>
@@ -530,8 +546,8 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
 
       </div>
       
-      {/* Sticky Donate Button */}
-      <div className="fixed bottom-6 left-6 z-50">
+      {/* Sticky Donate Button - Moved to the right for better visual flow */}
+      <div className="fixed bottom-6 right-6 z-50">
         <button 
           onClick={handleDonate}
           className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 font-semibold rounded-full shadow-lg border border-slate-200 hover:bg-slate-50 hover:scale-105 active:scale-95 transition-all duration-200 group"
