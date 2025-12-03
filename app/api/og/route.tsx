@@ -7,7 +7,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const name = searchParams.get('name');
   const score = searchParams.get('score');
-  const rank = searchParams.get('rank');
+  const rankParam = searchParams.get('rank');
+  const address = searchParams.get('address');
+  const avatarParam = searchParams.get('avatar'); // Passed explicitly
 
   // Basic validation
   if (!name || !score) {
@@ -21,17 +23,50 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#1e293b', // slate-800
+            backgroundColor: '#0052fc',
             color: 'white',
             fontFamily: 'sans-serif',
           }}
         >
-          <div style={{ fontSize: 60, fontWeight: 'bold', color: '#60a5fa' }}>Base Builder Score</div>
-          <div style={{ fontSize: 30, marginTop: 20, color: '#94a3b8' }}>Check your onchain reputation</div>
+          <div style={{ fontSize: 60, fontWeight: 'bold' }}>Base Builder Score</div>
         </div>
       ),
       { width: 1200, height: 800 }
     );
+  }
+
+  // Rank Logic
+  const isUnranked = !rankParam || rankParam === 'null' || rankParam === 'NaN' || isNaN(Number(rankParam));
+  const rankText = isUnranked ? 'Unranked' : `Rank #${Number(rankParam).toLocaleString()}`;
+
+  // PFP Loading
+  let pfpSrc: string | null = null;
+  let pfpUrl = avatarParam;
+
+  // If no explicit avatar, fallback to address or name
+  if (!pfpUrl) {
+     if (address && address !== 'undefined') {
+        pfpUrl = `https://effigy.im/a/${address}.png`;
+     } else {
+        pfpUrl = `https://avatar.vercel.sh/${name}`;
+     }
+  }
+
+  // IMPORTANT: Server-side fetch the image to avoid CORS/Cache issues
+  if (pfpUrl) {
+     try {
+        const res = await fetch(pfpUrl);
+        if (res.ok) {
+            const buffer = await res.arrayBuffer();
+            // @ts-ignore
+            const base64 = Buffer.from(buffer).toString('base64');
+            const contentType = res.headers.get('content-type') || 'image/png';
+            pfpSrc = `data:${contentType};base64,${base64}`;
+        }
+     } catch (e) {
+        console.warn("PFP fetch error:", e);
+        // Fallback to default if fetch fails
+     }
   }
 
   return new ImageResponse(
@@ -44,41 +79,51 @@ export async function GET(request: NextRequest) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(to bottom right, #1e40af, #1e293b)', // blue-800 to slate-800
+          background: 'linear-gradient(to bottom right, #0052fc, #003bb5)',
           color: 'white',
           fontFamily: 'sans-serif',
           position: 'relative',
         }}
       >
         {/* Background Accents */}
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: 'rgba(59, 130, 246, 0.2)', borderRadius: '50%', filter: 'blur(80px)' }}></div>
-        <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '300px', height: '300px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '50%', filter: 'blur(60px)' }}></div>
+        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '50%', filter: 'blur(80px)' }}></div>
+        <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '300px', height: '300px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '50%', filter: 'blur(60px)' }}></div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
-          <div style={{ fontSize: 32, textTransform: 'uppercase', letterSpacing: '4px', color: '#93c5fd', marginBottom: 20 }}>Base Builder Score</div>
+          <div style={{ fontSize: 32, textTransform: 'uppercase', letterSpacing: '4px', color: '#bfdbfe', marginBottom: 20 }}>Base Builder Score</div>
           
           <div style={{ 
             display: 'flex', 
             flexDirection: 'column', 
             alignItems: 'center', 
-            background: 'rgba(15, 23, 42, 0.6)', 
-            border: '2px solid rgba(255,255,255,0.1)',
+            background: 'rgba(255, 255, 255, 0.1)', 
+            border: '2px solid rgba(255,255,255,0.2)',
             borderRadius: '40px',
             padding: '40px 80px',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
+            boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
           }}>
-            <div style={{ fontSize: 140, fontWeight: 900, lineHeight: 1, background: 'linear-gradient(to bottom right, #ffffff, #bfdbfe)', backgroundClip: 'text', color: 'transparent' }}>
+            <div style={{ fontSize: 140, fontWeight: 900, lineHeight: 1, color: 'white' }}>
               {score}
             </div>
-            {rank && rank !== 'null' && (
-              <div style={{ display: 'flex', alignItems: 'center', marginTop: 20, background: 'rgba(255,255,255,0.15)', padding: '10px 30px', borderRadius: '50px' }}>
-                <span style={{ fontSize: 30, color: '#fbbf24', marginRight: 10 }}>🏆</span>
-                <span style={{ fontSize: 28, fontWeight: 'bold', color: 'white' }}>Top {parseInt(rank).toLocaleString()}</span>
-              </div>
-            )}
+            
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: 20, background: 'rgba(0,0,0,0.2)', padding: '10px 30px', borderRadius: '50px' }}>
+              <span style={{ fontSize: 30, color: '#fbbf24', marginRight: 10 }}>🏆</span>
+              <span style={{ fontSize: 28, fontWeight: 'bold', color: 'white' }}>{rankText}</span>
+            </div>
           </div>
 
-          <div style={{ fontSize: 40, marginTop: 40, fontWeight: 'bold', color: '#e2e8f0' }}>{name}</div>
+          {/* User Profile Section */}
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 40 }}>
+            {pfpSrc ? (
+                <img 
+                  src={pfpSrc}
+                  width="80" 
+                  height="80" 
+                  style={{ borderRadius: '50%', border: '4px solid rgba(255,255,255,0.3)', marginRight: 20, objectFit: 'cover' }} 
+                />
+            ) : null}
+            <div style={{ fontSize: 50, fontWeight: 'bold', color: 'white' }}>@{name}</div>
+          </div>
         </div>
       </div>
     ),
