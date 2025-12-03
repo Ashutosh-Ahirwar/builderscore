@@ -239,7 +239,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
         shareUrl += `&address=${scoreData.address}`;
     }
 
-    const text = `My Builder Score is ${scoreData.score.points} points!
+    const text = `My Base Builder Score is ${scoreData.score.points} points!
 
 Check yours here:`;
 
@@ -262,7 +262,7 @@ Check yours here:`;
             await sdkRef.current.actions.sendToken({
                 chainId: 8453, 
                 to: DONATIONADDRESS,
-                amount: BigInt(500000000000000).toString(), 
+                amount: "500000000000000", 
                 token: {
                    chainId: 8453,
                    address: "0x0000000000000000000000000000000000000000", // Sentinel
@@ -306,8 +306,8 @@ Check yours here:`;
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 pb-20">
       <div className="max-w-md mx-auto min-h-screen bg-white shadow-2xl overflow-hidden flex flex-col border-x border-slate-100 relative">
         
-        {/* Header */}
-        <header className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-8 pb-10 rounded-b-[2.5rem] shadow-lg relative z-10 overflow-hidden">
+        {/* Header (Reduced Padding) */}
+        <header className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-5 pb-8 rounded-b-[2.5rem] shadow-lg relative z-10 overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
           
@@ -334,9 +334,10 @@ Check yours here:`;
           </div>
         </header>
 
-        <main className="flex-1 px-6 -mt-8 relative z-20 pb-8 space-y-6">
+        {/* Main Content (Adjusted Margins) */}
+        <main className="flex-1 px-6 -mt-6 relative z-20 pb-8 space-y-4">
           
-          {/* Search Card */}
+          {/* Search Card (Reduced Padding) */}
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-1.5">
             <form onSubmit={handleCheckScore} className="relative flex items-center">
               <div className="absolute left-4 text-slate-400 pointer-events-none">
@@ -347,13 +348,13 @@ Check yours here:`;
                 placeholder="username.base.eth"
                 value={basename}
                 onChange={(e) => setBasename(e.target.value)}
-                className="w-full pl-11 pr-14 py-4 bg-transparent rounded-xl focus:outline-none placeholder:text-slate-400 font-medium text-slate-800"
+                className="w-full pl-11 pr-14 py-3 bg-transparent rounded-xl focus:outline-none placeholder:text-slate-400 font-medium text-slate-800"
               />
               <div className="absolute right-1.5">
                 <button
                   type="submit"
                   disabled={loading || !basename}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl p-2.5 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center"
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl p-2 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -375,47 +376,47 @@ Check yours here:`;
 
           {/* Results State */}
           {scoreData && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-6 duration-700">
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-700">
               
-              {/* Score Card */}
-              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-[2rem] p-7 shadow-2xl relative overflow-hidden border border-white/10 group">
+              {/* Score Card (Compacted) */}
+              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-[2rem] p-5 shadow-2xl relative overflow-hidden border border-white/10 group">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/20 rounded-full blur-[60px] -mr-16 -mt-16 group-hover:bg-blue-500/30 transition-colors duration-700"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[40px] -ml-10 -mb-10"></div>
                 
                 <div className="relative z-10">
-                  <div className="mb-8">
-                    <h3 className="text-blue-200/80 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <div className="mb-4">
+                    <h3 className="text-blue-200/80 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
                       <Sparkles className="w-3 h-3 text-yellow-400" />
                       REPUTATION SCORE
                     </h3>
-                    <div className="text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-200 drop-shadow-lg">
+                    <div className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-200 drop-shadow-lg">
                       {scoreData.score.points}
                     </div>
                     {scoreData.score.rank_position && (
-                        <div className="mt-3 inline-flex bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-semibold border border-white/20 flex items-center gap-2 shadow-lg">
-                            <Trophy className="w-4 h-4 text-yellow-400 fill-current" />
+                        <div className="mt-2 inline-flex bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold border border-white/20 flex items-center gap-2 shadow-lg">
+                            <Trophy className="w-3.5 h-3.5 text-yellow-400 fill-current" />
                             <span className="text-slate-200">Top #{scoreData.score.rank_position.toLocaleString()} Builders</span>
                         </div>
                     )}
                   </div>
 
-                  <div className="space-y-3.5 pt-5 border-t border-white/10">
+                  <div className="space-y-2 pt-4 border-t border-white/10">
                     <div className="flex items-center justify-between text-sm group/item">
-                      <div className="flex items-center gap-3 text-slate-400">
-                        <Calendar className="w-4 h-4 text-blue-300" />
+                      <div className="flex items-center gap-2 text-slate-400 text-xs">
+                        <Calendar className="w-3.5 h-3.5 text-blue-300" />
                         <span className="font-semibold">Last Updated</span>
                       </div>
-                      <span className="font-medium text-slate-200 tabular-nums text-sm">
+                      <span className="font-medium text-slate-200 tabular-nums text-xs">
                         {formatDate(scoreData.score.last_calculated_at)}
                       </span>
                     </div>
                     {scoreData.address && (
                       <div className="flex items-center justify-between text-sm group/item">
-                        <div className="flex items-center gap-3 text-slate-400">
-                          <Shield className="w-4 h-4 text-indigo-300" />
+                        <div className="flex items-center gap-2 text-slate-400 text-xs">
+                          <Shield className="w-3.5 h-3.5 text-indigo-300" />
                           <span className="font-semibold">Wallet Address</span>
                         </div>
-                        <span className="font-mono text-xs bg-white/10 px-2.5 py-1.5 rounded-lg text-slate-200 border border-white/5 truncate max-w-[150px]">
+                        <span className="font-mono text-[10px] bg-white/10 px-2 py-1 rounded-lg text-slate-200 border border-white/5 truncate max-w-[150px]">
                           {scoreData.address.slice(0,6)}...{scoreData.address.slice(-4)}
                         </span>
                       </div>
@@ -424,18 +425,18 @@ Check yours here:`;
                 </div>
               </div>
 
-              {/* Share Buttons */}
+              {/* Share Buttons (Should be visible now) */}
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handleShare}
-                  className="py-4 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95"
+                  className="py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95 text-sm"
                 >
                   <Share2 className="w-4 h-4" />
                   Share Score
                 </button>
                 <button 
                   onClick={() => setShowImproveGuide(true)}
-                  className="py-4 px-4 bg-white border-2 border-blue-100 hover:border-blue-300 rounded-2xl text-blue-700 font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md hover:bg-blue-50 active:scale-[0.98]"
+                  className="py-3 px-4 bg-white border-2 border-blue-100 hover:border-blue-300 rounded-2xl text-blue-700 font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md hover:bg-blue-50 active:scale-[0.98] text-sm"
                 >
                   <BookOpen className="w-4 h-4" />
                   Improve Score
@@ -444,22 +445,22 @@ Check yours here:`;
 
               {/* Zero Score State */}
               {scoreData.score.points === 0 && (
-                <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 rounded-2xl p-6 shadow-sm">
-                  <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5" />
+                <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 rounded-2xl p-4 shadow-sm">
+                  <h4 className="font-bold text-amber-900 mb-1 flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4" />
                     No Score Found
                   </h4>
-                  <p className="text-amber-800/90 text-sm mb-4 leading-relaxed">
+                  <p className="text-amber-800/90 text-xs mb-3 leading-relaxed">
                     This profile hasn't earned a Builder Score yet.
                   </p>
                   <a 
                     href="https://talentprotocol.com" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-sm font-semibold transition-colors"
+                    className="inline-flex items-center px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-semibold transition-colors"
                   >
                     Start Building Reputation
-                    <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-70" />
+                    <ExternalLink className="w-3 h-3 ml-1.5 opacity-70" />
                   </a>
                 </div>
               )}
@@ -467,34 +468,33 @@ Check yours here:`;
           )}
 
           {/* Core Concepts Toggle */}
-          <div className="pt-2">
+          <div className="pt-1">
             <button 
               onClick={() => setShowConcepts(!showConcepts)}
-              className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:bg-blue-50/70 hover:border-blue-200 transition-all shadow-sm group"
+              className="w-full flex items-center justify-between p-3 bg-white border border-slate-100 rounded-2xl hover:bg-blue-50/70 hover:border-blue-200 transition-all shadow-sm group"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-500/70 group-hover:text-white transition-all duration-300">
-                   <CornerUpRight className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-500/70 group-hover:text-white transition-all duration-300">
+                   <CornerUpRight className="w-4 h-4 group-hover:rotate-45 transition-transform" />
                 </div>
                 <div className="text-left">
-                  <span className="block font-bold text-slate-800">Core Concepts</span>
-                  <span className="text-xs text-slate-500 font-medium">What is the Builder Score?</span>
+                  <span className="block font-bold text-slate-800 text-sm">Core Concepts</span>
                 </div>
               </div>
               <div className={`p-2 rounded-full text-slate-400 transition-all duration-300 ${showConcepts ? 'rotate-180 text-blue-500' : 'group-hover:text-blue-500'}`}>
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-4 h-4" />
               </div>
             </button>
-             {/* Toggle Content (Shortened) */}
+             {/* Toggle Content */}
             {showConcepts && (
-              <div className="mt-3 space-y-4 animate-in slide-in-from-top-2 duration-300 ease-out origin-top">
-                <div className="prose prose-sm max-w-none text-slate-600 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                  <p className="mb-6 leading-relaxed">Talent Protocol tracks builder activity across blockchains...</p>
-                   <div className="grid grid-cols-1 gap-3">
-                    <InfoItem icon={<User className="w-4 h-4 text-emerald-500"/>} title="Profile" desc="Unified identity." />
-                    <InfoItem icon={<Shield className="w-4 h-4 text-purple-500"/>} title="User" desc="Verified individual." />
-                    <InfoItem icon={<Database className="w-4 h-4 text-amber-500"/>} title="Data Point" desc="Verified facts." />
-                    <InfoItem icon={<Activity className="w-4 h-4 text-pink-500"/>} title="Score" desc="Numerical reputation." />
+              <div className="mt-2 space-y-4 animate-in slide-in-from-top-2 duration-300 ease-out origin-top">
+                <div className="prose prose-sm max-w-none text-slate-600 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 text-xs">
+                  <p className="mb-4 leading-relaxed">Talent Protocol tracks builder activity across blockchains...</p>
+                   <div className="grid grid-cols-1 gap-2">
+                    <InfoItem icon={<User className="w-3 h-3 text-emerald-500"/>} title="Profile" desc="Unified identity." />
+                    <InfoItem icon={<Shield className="w-3 h-3 text-purple-500"/>} title="User" desc="Verified individual." />
+                    <InfoItem icon={<Database className="w-3 h-3 text-amber-500"/>} title="Data Point" desc="Verified facts." />
+                    <InfoItem icon={<Activity className="w-3 h-3 text-pink-500"/>} title="Score" desc="Numerical reputation." />
                   </div>
                 </div>
               </div>

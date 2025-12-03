@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
             fontFamily: 'sans-serif',
           }}
         >
-          <div style={{ fontSize: 60, fontWeight: 'bold' }}>Builder Score</div>
+          <div style={{ fontSize: 60, fontWeight: 'bold' }}>Base Builder Score</div>
         </div>
       ),
       { width: 1200, height: 800 }
