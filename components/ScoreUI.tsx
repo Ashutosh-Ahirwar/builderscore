@@ -1,22 +1,23 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+// Import from lucide-react
 import { 
   Search, Trophy, Calendar, User, Shield, Database, Activity, 
   AlertCircle, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, 
-  BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2
+  BookOpen, X, Target, Sparkles, Heart, Bookmark, Copy, Share2, CornerUpRight 
 } from 'lucide-react';
 
 // --- Configuration ---
-const APP_URL = "https://builderscore.vercel.app";
+const APPURL = "https://builderscore.vercel.app";
+const DONATIONADDRESS = "0xa6DEe9FdE9E1203ad02228f00bF10235d9Ca3752";
 
 // --- Types ---
 interface BuilderScore {
   score: {
     last_calculated_at: string | null;
     points: number;
-    rank_position: number | null;
+    rank_position: number | null; // Updated to match snake_case from your error log
     slug: string;
   };
   address?: string;
@@ -28,7 +29,7 @@ interface ScoreUIProps {
 }
 
 // --- Data ---
-const SCORING_DATA = [
+const SCORINGDATA = [
   {
     category: "Onchain Activity",
     icon: <Activity className="w-5 h-5 text-blue-500" />,
@@ -36,8 +37,8 @@ const SCORING_DATA = [
       { name: "ETH Balance", points: "8 pts", desc: "Verifies total ETH balance across all supported chains." },
       { name: "Outgoing Transactions", points: "8 pts", desc: "Verifies total number of outgoing transactions." },
       { name: "First Transaction", points: "8 pts", desc: "Verifies timestamp of first transaction." },
-      { name: "Contracts (Testnet)", points: "4 pts", desc: "Smart contracts deployed to testnet." },
-      { name: "Contracts (Mainnet)", points: "8 pts", desc: "Smart contracts deployed to mainnet." },
+      { name: "Contracts Testnet", points: "4 pts", desc: "Smart contracts deployed to testnet." },
+      { name: "Contracts Mainnet", points: "8 pts", desc: "Smart contracts deployed to mainnet." },
       { name: "Active Smart Contracts", points: "12 pts", desc: "Mainnet contracts with 10+ unique transacting wallets." },
     ]
   },
@@ -45,9 +46,9 @@ const SCORING_DATA = [
     category: "Base Ecosystem",
     icon: <Database className="w-5 h-5 text-blue-600" />,
     items: [
-      { name: "Base Learn", points: "13 pts", desc: "Completion of Base Learn exercises (13 SBTs)." },
+      { name: "Base Learn", points: "13 pts", desc: "Completion of Base Learn exercises (>13 SBTs)." },
       { name: "Builder Rewards", points: "30 pts", desc: "ETH earnings from Base Builder Rewards Program." },
-      { name: "/base-builds Earnings", points: "30 pts", desc: "ETH earnings from /base-builds rounds." },
+      { name: "base-builds Earnings", points: "30 pts", desc: "ETH earnings from base-builds rounds." },
       { name: "Basecamp Attendee", points: "20 pts", desc: "Attendance at Basecamp 001 or 002." },
       { name: "Hackathons Participation", points: "20 pts", desc: "Participation in Base Hackathons." },
       { name: "Hackathons Won", points: "30 pts", desc: "Wins in Base Hackathons." },
@@ -71,21 +72,21 @@ const SCORING_DATA = [
     category: "Farcaster",
     icon: <Activity className="w-5 h-5 text-purple-500" />,
     items: [
-       { name: "Developer Rewards", points: "40 pts", desc: "USDC earned (top 25 mini apps)." },
-       { name: "Account Age", points: "6 pts", desc: "Account creation date." },
-       { name: "Creator Rewards", points: "24 pts", desc: "USDC earned (top accounts)." },
-       { name: "Farcon NYC 2025", points: "12 pts", desc: "Attendance ticket NFT." },
+      { name: "Developer Rewards", points: "40 pts", desc: "USDC earned (top 25 mini apps)." },
+      { name: "Account Age", points: "6 pts", desc: "Account creation date." },
+      { name: "Creator Rewards", points: "24 pts", desc: "USDC earned (top accounts)." },
+      { name: "Farcon NYC 2025", points: "12 pts", desc: "Attendance ticket NFT." },
     ]
   },
   {
     category: "Talent Protocol",
     icon: <Shield className="w-5 h-5 text-purple-600" />,
     items: [
-      { name: "$TALENT Balance", points: "8 pts", desc: "Current $TALENT balance on Base." },
+      { name: "TALENT Balance", points: "8 pts", desc: "Current TALENT balance on Base." },
       { name: "Account Age", points: "6 pts", desc: "Talent Protocol account age." },
       { name: "Human Checkmark", points: "20 pts", desc: "Identity verification completion." },
-      { name: "$TALENT Vault", points: "8 pts", desc: "Total amount staked." },
-      { name: "Builder+ Member", points: "6 pts", desc: "Active Builder+ membership." },
+      { name: "TALENT Vault", points: "8 pts", desc: "Total amount staked." },
+      { name: "Builder Member", points: "6 pts", desc: "Active Builder membership." },
       { name: "Verified Builder", points: "20 pts", desc: "Registry of Onchain Builders status." },
     ]
   },
@@ -103,63 +104,114 @@ const SCORING_DATA = [
       { name: "ETHGlobal", points: "116 pts", desc: "Hackathons, Packs, Finalist status." },
       { name: "Devfolio", points: "50 pts", desc: "Hackathon participation (20) and wins (30)." },
       { name: "Encode", points: "50 pts", desc: "Programmes participation (20) and wins (30)." },
-      { name: "Developer DAO", points: "20 pts", desc: "OG Status (12) or $CODE tokens (8)." },
+      { name: "Developer DAO", points: "20 pts", desc: "OG Status (12) or CODE tokens (8)." },
     ]
   }
 ];
 
-export default function ScoreUI({ initialBasename = '', initialScoreData = null }: ScoreUIProps) {
-  const [basename, setBasename] = useState(initialBasename);
+export default function ScoreUI({ initialBasename, initialScoreData = null }: ScoreUIProps) {
+  const [basename, setBasename] = useState(initialBasename || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scoreData, setScoreData] = useState<BuilderScore | null>(initialScoreData);
+  
   const [showConcepts, setShowConcepts] = useState(false);
   const [showImproveGuide, setShowImproveGuide] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  
+  // Track Farcaster Mini App status
+  const [isAdded, setIsAdded] = useState(false);
+  const sdkRef = useRef<any>(null);
 
-  // Initialize Farcaster SDK
+  // Initialize SDK
   useEffect(() => {
+    let cancelled = false;
     const initSdk = async () => {
       try {
+        // Dynamically import to avoid SSR build issues
+        // Destructure { sdk } from the module
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        
+        if (cancelled) return;
+        
+        // Store in ref
+        sdkRef.current = sdk;
+
         await sdk.actions.ready();
+        console.log("Farcaster Mini App ready called");
+
+        // Check context for added status
+        const context = await sdk.context;
+        if (context?.client?.added) {
+          setIsAdded(true);
+        }
+
       } catch (err) {
-        console.error('Failed to initialize SDK:', err);
+        console.error("Failed to initialize Farcaster Mini App SDK", err);
       }
     };
     initSdk();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleAddMiniApp = async () => {
+  // Handle "Bookmark" / "Add Mini App"
+  const handleAddMiniApp = useCallback(async () => {
+    if (!sdkRef.current) return;
+    
     try {
-      await sdk.actions.addMiniApp();
+      const result = await sdkRef.current.actions.addMiniApp();
+      if (result.success) {
+        setIsAdded(true);
+      }
     } catch (e) {
-      console.error('Failed to add mini app manually', e);
+      console.error("Failed to add mini app manually", e);
     }
-  };
+  }, []);
 
+  // Handle Search / Check Score
   const handleCheckScore = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setScoreData(null);
 
-    // Prompt to add MiniApp on search interaction
+    // 1. Check Context & Prompt to Add if necessary
     try {
-      const context = await sdk.context;
-      if (context && context.client && !context.client.added) {
-         await sdk.actions.addMiniApp();
+      // Use the ref if available, fallback to import if needed
+      let sdk = sdkRef.current;
+      if (!sdk) {
+         const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
+         sdk = importedSdk;
+         sdkRef.current = sdk;
       }
-    } catch (e) {
-      console.log('User skipped adding app or error:', e);
+
+      if (sdk) {
+        const context = await sdk.context;
+        if (context?.client && !context.client.added) {
+            try {
+                const result = await sdk.actions.addMiniApp();
+                if (result.success) {
+                    setIsAdded(true);
+                }
+            } catch (addError) {
+                console.log("User skipped adding app or error", addError);
+            }
+        }
+      }
+    } catch (contextError) {
+        console.error("Error checking context:", contextError);
     }
 
+    // 2. Fetch Data
     try {
       const response = await fetch(`/api/builder-score?name=${encodeURIComponent(basename)}`);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 404) {
-           throw new Error("Could not resolve this Basename. Please ensure spelling is correct, or try using your primary Basename if you have one set.");
+          throw new Error("Could not resolve this Basename. Please ensure spelling is correct, or try using your primary Basename if you have one set.");
         }
         throw new Error(data.error || 'Failed to fetch score');
       }
@@ -172,18 +224,22 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     }
   };
 
+  // Handle Share
   const handleShare = async () => {
     if (!scoreData || !basename) return;
-
-    // Use hardcoded production URL to ensure the share link is valid for Farcaster
-    const shareUrl = `${APP_URL}/?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position}`;
     
-    const text = `I just checked my Base Builder Score: ${scoreData.score.points} points! 🏗️\n\nCheck yours here:`;
+    if (!sdkRef.current) {
+        console.error("SDK not ready");
+        return;
+    }
+
+    const shareUrl = `${APPURL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'N/A'}`;
+    const text = `My Base Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
 
     try {
-      await sdk.actions.composeCast({
-        text: text,
-        embeds: [shareUrl]
+      await sdkRef.current.actions.composeCast({ 
+        text: text, 
+        embeds: [shareUrl] 
       });
     } catch (e) {
       console.error("Error launching compose cast", e);
@@ -202,14 +258,16 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   };
 
   const handleDonate = () => {
-    const address = "0xa6DEe9FdE9E1203ad02228f00bF10235d9Ca3752";
+    const address = DONATIONADDRESS;
+    
+    // Fallback for mobile/iframe environments where navigator.clipboard might fail
     const textArea = document.createElement("textarea");
     textArea.value = address;
     textArea.style.position = "fixed"; 
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
+
     try {
       document.execCommand('copy');
       setIsCopied(true);
@@ -217,7 +275,7 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     } catch (err) {
       console.error('Fallback copy failed', err);
     }
-    
+
     document.body.removeChild(textArea);
   };
 
@@ -233,15 +291,19 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
               <h1 className="text-2xl font-bold tracking-tight">Base Builder Score</h1>
+              
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={handleAddMiniApp}
-                  className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all active:scale-95 group"
-                  title="Bookmark App"
-                >
-                  <Bookmark className="w-4 h-4 text-blue-100 fill-transparent group-hover:fill-blue-100/50 transition-colors" />
-                  <span className="text-xs font-semibold text-blue-50">Bookmark</span>
-                </button>
+                {/* Conditional Bookmark Button */}
+                {!isAdded && (
+                    <button 
+                    onClick={handleAddMiniApp} 
+                    className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all active:scale-95 group" 
+                    title="Bookmark App"
+                    >
+                    <Bookmark className="w-4 h-4 text-blue-100 fill-transparent group-hover:fill-blue-100/50 transition-colors" />
+                    <span className="text-xs font-semibold text-blue-50">Bookmark</span>
+                    </button>
+                )}
               </div>
             </div>
             <p className="text-blue-100/90 text-sm leading-relaxed max-w-[90%]">
@@ -266,15 +328,15 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
                 className="w-full pl-11 pr-14 py-4 bg-transparent rounded-xl focus:outline-none placeholder:text-slate-400 font-medium text-slate-800"
               />
               <div className="absolute right-1.5">
-                <button 
+                <button
                   type="submit"
                   disabled={loading || !basename}
                   className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl p-2.5 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center"
                 >
                   {loading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
-                    <ChevronDown className={`w-5 h-5 transition-transform ${loading ? '' : '-rotate-90'}`} />
+                    <ChevronDown className="w-5 h-5 -rotate-90" />
                   )}
                 </button>
               </div>
@@ -299,43 +361,40 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[40px] -ml-10 -mb-10"></div>
                 
                 <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-10">
-                    <div>
-                      <h3 className="text-blue-200/80 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3" />
-                        Reputation Score
-                      </h3>
-                      <div className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-200 drop-shadow-sm">
-                        {scoreData.score.points}
-                      </div>
+                  <div className="mb-8">
+                    <h3 className="text-blue-200/80 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-yellow-400" />
+                      REPUTATION SCORE
+                    </h3>
+                    <div className="text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-200 drop-shadow-lg">
+                      {scoreData.score.points}
                     </div>
                     {scoreData.score.rank_position && (
-                       <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold border border-white/10 flex items-center gap-1.5 shadow-lg">
-                         <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-                         Top {scoreData.score.rank_position.toLocaleString()}
-                       </div>
+                        <div className="mt-3 inline-flex bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-semibold border border-white/20 flex items-center gap-2 shadow-lg">
+                            <Trophy className="w-4 h-4 text-yellow-400 fill-current" />
+                            <span className="text-slate-200">Top #{scoreData.score.rank_position.toLocaleString()} Builders</span>
+                        </div>
                     )}
                   </div>
 
-                  <div className="space-y-3.5 pt-5 border-t border-white/5">
+                  <div className="space-y-3.5 pt-5 border-t border-white/10">
                     <div className="flex items-center justify-between text-sm group/item">
-                      <div className="flex items-center gap-2 text-slate-400 group-hover/item:text-slate-300 transition-colors">
-                        <Calendar className="w-4 h-4" />
-                        <span>Last Updated</span>
+                      <div className="flex items-center gap-3 text-slate-400">
+                        <Calendar className="w-4 h-4 text-blue-300" />
+                        <span className="font-semibold">Last Updated</span>
                       </div>
-                      <span className="font-medium text-slate-200 tabular-nums">
+                      <span className="font-medium text-slate-200 tabular-nums text-sm">
                         {formatDate(scoreData.score.last_calculated_at)}
                       </span>
                     </div>
-                    
                     {scoreData.address && (
                       <div className="flex items-center justify-between text-sm group/item">
-                         <div className="flex items-center gap-2 text-slate-400 group-hover/item:text-slate-300 transition-colors">
-                          <Shield className="w-4 h-4" />
-                          <span>Wallet Address</span>
+                        <div className="flex items-center gap-3 text-slate-400">
+                          <Shield className="w-4 h-4 text-indigo-300" />
+                          <span className="font-semibold">Wallet Address</span>
                         </div>
-                        <span className="font-mono text-[11px] bg-black/40 px-2.5 py-1 rounded-lg text-slate-300 border border-white/5 truncate max-w-[120px]">
-                          {scoreData.address}
+                        <span className="font-mono text-xs bg-white/10 px-2.5 py-1.5 rounded-lg text-slate-200 border border-white/5 truncate max-w-[150px]">
+                          {scoreData.address.slice(0,6)}...{scoreData.address.slice(-4)}
                         </span>
                       </div>
                     )}
@@ -354,32 +413,33 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
                 </button>
                 <button 
                   onClick={() => setShowImproveGuide(true)}
-                  className="py-4 px-4 bg-white border border-blue-100 hover:border-blue-300 rounded-2xl text-blue-700 font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md hover:bg-blue-50/50 active:scale-[0.98]"
+                  className="py-4 px-4 bg-white border-2 border-blue-100 hover:border-blue-300 rounded-2xl text-blue-700 font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md hover:bg-blue-50 active:scale-[0.98]"
                 >
                   <BookOpen className="w-4 h-4" />
                   Improve Score
                 </button>
               </div>
 
-              {/* Zero Score / Call to Action */}
+              {/* Zero Score Call to Action */}
               {scoreData.score.points === 0 && (
-                 <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 rounded-2xl p-6 shadow-sm">
-                    <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
-                      No Score Found
-                    </h4>
-                    <p className="text-amber-800/90 text-sm mb-4 leading-relaxed">
-                      This profile hasn't earned a Builder Score yet. To get started, you need to be active onchain and connect your accounts.
-                    </p>
-                    <a 
-                      href="https://talentprotocol.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-sm font-semibold transition-colors"
-                    >
-                      Start Building Reputation <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-70" />
-                    </a>
-                 </div>
+                <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 rounded-2xl p-6 shadow-sm">
+                  <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5" />
+                    No Score Found
+                  </h4>
+                  <p className="text-amber-800/90 text-sm mb-4 leading-relaxed">
+                    This profile hasn't earned a Builder Score yet. To get started, you need to be active onchain and connect your accounts.
+                  </p>
+                  <a 
+                    href="https://talentprotocol.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    Start Building Reputation
+                    <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-70" />
+                  </a>
+                </div>
               )}
             </div>
           )}
@@ -388,112 +448,90 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
           <div className="pt-2">
             <button 
               onClick={() => setShowConcepts(!showConcepts)}
-              className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm group"
+              className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:bg-blue-50/70 hover:border-blue-200 transition-all shadow-sm group"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 group-hover:scale-110 transition-all duration-300">
-                  <Activity className="w-5 h-5" />
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-500/70 group-hover:text-white transition-all duration-300">
+                   <CornerUpRight className="w-5 h-5 group-hover:rotate-45 transition-transform" />
                 </div>
                 <div className="text-left">
-                   <span className="block font-bold text-slate-800">What is Builder Score?</span>
-                   <span className="text-xs text-slate-500 font-medium">Learn about the protocol</span>
+                  <span className="block font-bold text-slate-800">Core Concepts</span>
+                  <span className="text-xs text-slate-500 font-medium">What is the Builder Score?</span>
                 </div>
               </div>
-              <div className={`p-2 rounded-full bg-slate-50 text-slate-400 group-hover:bg-white group-hover:text-blue-500 transition-all duration-300 ${showConcepts ? 'rotate-180 bg-blue-50 text-blue-500' : ''}`}>
+              <div className={`p-2 rounded-full text-slate-400 transition-all duration-300 ${showConcepts ? 'rotate-180 text-blue-500' : 'group-hover:text-blue-500'}`}>
                 <ChevronDown className="w-5 h-5" />
               </div>
             </button>
-            
+
             {showConcepts && (
               <div className="mt-3 space-y-4 animate-in slide-in-from-top-2 duration-300 ease-out origin-top">
-                
-                {/* Intro */}
                 <div className="prose prose-sm max-w-none text-slate-600 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                   <p className="mb-6 leading-relaxed">
                     Talent Protocol tracks builder activity across blockchains, GitHub, Twitter and other platforms to calculate a 
-                    <strong className="text-blue-600 bg-blue-50 px-1 py-0.5 rounded ml-1">Builder Score</strong>. This helps ecosystems reward real contributors.
+                    <strong className="text-blue-600 bg-blue-50 px-1 py-0.5 rounded ml-1">Builder Score</strong>. 
+                    This helps ecosystems reward real contributors.
                   </p>
+                  
                   <div className="grid grid-cols-1 gap-3">
-                    <InfoItem 
-                      icon={<User className="w-4 h-4 text-emerald-500" />}
-                      title="Profile"
-                      desc="Unified identity linking wallets & accounts."
-                    />
-                    <InfoItem 
-                      icon={<Shield className="w-4 h-4 text-purple-500" />}
-                      title="User"
-                      desc="A verified individual with one or more accounts."
-                    />
-                    <InfoItem 
-                      icon={<Database className="w-4 h-4 text-amber-500" />}
-                      title="Data Point"
-                      desc="Verified facts (Transactions, GitHub stars, etc)."
-                    />
-                     <InfoItem 
-                      icon={<Activity className="w-4 h-4 text-pink-500" />}
-                      title="Score"
-                      desc="Numerical reputation calculated from Data Points."
-                    />
+                    <InfoItem icon={<User className="w-4 h-4 text-emerald-500"/>} title="Profile" desc="Unified identity linking wallets & accounts." />
+                    <InfoItem icon={<Shield className="w-4 h-4 text-purple-500"/>} title="User" desc="A verified individual with one or more accounts." />
+                    <InfoItem icon={<Database className="w-4 h-4 text-amber-500"/>} title="Data Point" desc="Verified facts (Transactions, GitHub stars, etc)." />
+                    <InfoItem icon={<Activity className="w-4 h-4 text-pink-500"/>} title="Score" desc="Numerical reputation calculated from Data Points." />
                   </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-slate-50 to-white p-5 rounded-2xl border border-slate-100">
-                    <h4 className="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2">
-                       <Target className="w-4 h-4 text-blue-500" />
-                       Why it matters
-                    </h4>
-                    <ul className="space-y-3">
-                      <li className="flex items-start gap-3 text-sm text-slate-600">
-                        <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                        <span className="leading-snug">Helps builders get <strong className="font-semibold text-slate-700">rewarded</strong> for contributions.</span>
-                      </li>
-                      <li className="flex items-start gap-3 text-sm text-slate-600">
-                        <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                        <span className="leading-snug">Makes reputation <strong className="font-semibold text-slate-700">visible</strong> across ecosystems.</span>
-                      </li>
-                      <li className="flex items-start gap-3 text-sm text-slate-600">
-                        <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                        <span className="leading-snug">Distinguishes <strong className="font-semibold text-slate-700">real builders</strong> from bots.</span>
-                      </li>
-                    </ul>
+                   <h4 className="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2">
+                      <Target className="w-4 h-4 text-blue-500" />
+                      Why it matters
+                   </h4>
+                   <ul className="space-y-3">
+                     <li className="flex items-start gap-3 text-sm text-slate-600">
+                       <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                       <span className="leading-snug">Helps builders get <strong className="font-semibold text-slate-700">rewarded</strong> for contributions.</span>
+                     </li>
+                     <li className="flex items-start gap-3 text-sm text-slate-600">
+                       <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                       <span className="leading-snug">Makes reputation <strong className="font-semibold text-slate-700">visible</strong> across ecosystems.</span>
+                     </li>
+                     <li className="flex items-start gap-3 text-sm text-slate-600">
+                       <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                       <span className="leading-snug">Distinguishes <strong className="font-semibold text-slate-700">real builders</strong> from bots.</span>
+                     </li>
+                   </ul>
                 </div>
-
               </div>
             )}
           </div>
-
         </main>
 
         {/* Improvement Guide Modal */}
         {showImproveGuide && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
             <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-white/20">
-              
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-xl sticky top-0 z-10">
                 <div>
-                   <h2 className="text-xl font-bold text-slate-900 tracking-tight">Score Guide</h2>
-                   <p className="text-sm text-slate-500 font-medium">Actions to increase your builder reputation</p>
+                  <h2 className="text-xl font-bold text-slate-900 tracking-tight">Score Guide</h2>
+                  <p className="text-sm text-slate-500 font-medium">Actions to increase your builder reputation</p>
                 </div>
                 <button 
-                  onClick={() => setShowImproveGuide(false)} 
+                  onClick={() => setShowImproveGuide(false)}
                   className="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
+              
               <div className="overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent bg-slate-50/50">
-                {SCORING_DATA.map((cat) => (
+                {SCORINGDATA.map((cat) => (
                   <div key={cat.category} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/60">
                     <div className="flex items-center gap-3 mb-5 pb-3 border-b border-slate-50">
-                       <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-                          {cat.icon}
-                       </div>
-                       <h3 className="font-bold text-slate-800 text-lg">
-                          {cat.category}
-                       </h3>
+                      <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
+                         {cat.icon}
+                      </div>
+                      <h3 className="font-bold text-slate-800 text-lg">{cat.category}</h3>
                     </div>
-                    
                     <div className="grid gap-3 sm:grid-cols-2">
                       {cat.items.map((item) => (
                         <div key={item.name} className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-sm transition-all group duration-200">
@@ -514,40 +552,39 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
               </div>
               
               <div className="p-5 bg-white border-t border-slate-100 text-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] relative z-20">
-                 <a 
-                   href="https://talentprotocol.com"
-                   target="_blank"
-                   rel="noopener noreferrer" 
-                   className="inline-flex items-center justify-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 w-full sm:w-auto"
-                 >
-                   Connect accounts at Talent Protocol <ExternalLink className="w-4 h-4" />
-                 </a>
+                <a 
+                  href="https://talentprotocol.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 w-full sm:w-auto"
+                >
+                  Connect accounts at Talent Protocol
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               </div>
-
             </div>
           </div>
         )}
 
-      </div>
-      
-      {/* Sticky Donate Button */}
-      <div className="fixed bottom-6 left-6 z-50">
-        <button 
-          onClick={handleDonate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 font-semibold rounded-full shadow-lg border border-slate-200 hover:bg-slate-50 hover:scale-105 active:scale-95 transition-all duration-200 group"
-        >
-          <div className="bg-rose-100 p-1.5 rounded-full group-hover:bg-rose-200 transition-colors">
-            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-          </div>
-          <span className="text-sm">Donate</span>
-          {isCopied ? (
-            <span className="ml-1 text-xs text-green-600 font-medium animate-in fade-in">Copied!</span>
-          ) : (
-            <Copy className="w-3 h-3 text-slate-400 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-          )}
-        </button>
-      </div>
+        {/* Sticky Donate Button */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <button 
+            onClick={handleDonate}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 font-semibold rounded-full shadow-lg border border-slate-200 hover:bg-slate-50 hover:scale-105 active:scale-95 transition-all duration-200 group"
+          >
+            <div className="bg-rose-100 p-1.5 rounded-full group-hover:bg-rose-200 transition-colors">
+               <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+            </div>
+            <span className="text-sm">Donate</span>
+            {isCopied ? (
+              <span className="ml-1 text-xs text-green-600 font-medium animate-in fade-in">Copied!</span>
+            ) : (
+              <Copy className="w-3 h-3 text-slate-400 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </button>
+        </div>
 
+      </div>
     </div>
   );
 }
