@@ -3,6 +3,7 @@
     "name": "Base Builder Score",
     "version": "1",
     "iconUrl": "https://builderscore.vercel.app/icon.png",
+    "imageUrl": "https://builderscore.vercel.app/hero.png",
     "homeUrl": "https://builderscore.vercel.app",
     "buttonTitle": "Check Builder Score",
     "splashImageUrl": "https://builderscore.vercel.app/hero.png",
