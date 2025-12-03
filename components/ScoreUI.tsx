@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // SDK import left external to avoid build issues
 import { 
   Search, Trophy, Calendar, User, Shield, Database, Activity, 
@@ -132,17 +132,16 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const [showImproveGuide, setShowImproveGuide] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isAdded, setIsAdded] = useState(false); 
+  const sdkRef = useRef<any>(null);
 
   // Use useCallback to memoize SDK interaction handlers
   const handleAddMiniApp = useCallback(async () => {
-    const sdkInstance = getSdk();
+    if (!sdkRef.current) return;
+    
     try {
-      const result = await sdkInstance.actions.addMiniApp();
-      
-      // Only hide if the result indicates success or if you want to optimistically hide it
-      // Based on your description, it seems you want it to prompt first.
+      const result = await sdkRef.current.actions.addMiniApp();
       if (result.success) {
-         setIsAdded(true);
+          setIsAdded(true);
       }
     } catch (e) {
       console.error("Failed to add mini app manually", e);
@@ -150,27 +149,26 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
 }, []);
 
 
-
   
-   useEffect(() => {
+    useEffect(() => {
     let cancelled = false;
     const initSdk = async () => {
       try {
-        // CHANGE THIS LINE: Destructure 'sdk' from the module
+        // Import the module destructuring the 'sdk' named export
         const { sdk } = await import("@farcaster/miniapp-sdk");
         
         if (cancelled) return;
         
-        await sdk.actions.ready();
-        console.log("Farcaster Mini App ready called");
-
-        // NOW THIS WILL WORK
-        const context = await sdk.context;
+        // Store it in the ref for other functions to use
+        sdkRef.current = sdk;
         
+        await sdk.actions.ready();
+        
+        // Check if already added
+        const context = await sdk.context;
         if (context?.client?.added) {
           setIsAdded(true);
         }
-
       } catch (err) {
         console.error("Failed to initialize Farcaster Mini App SDK", err);
       }
@@ -179,7 +177,7 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     return () => {
       cancelled = true;
     };
-}, []);
+  }, []);
 
 
 
@@ -188,37 +186,46 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     setLoading(true);
     setError(null);
     setScoreData(null);
-    
-    const sdkInstance = getSdk();
 
-    // Prompt to add MiniApp on search interaction
+    // 1. Check Context & Prompt to Add
     try {
-        // Ensure we have the context
-        const { sdk } = await import("@farcaster/miniapp-sdk");
-        const context = await sdk.context;
+      // Use the ref if available, otherwise fallback to dynamic import
+      let sdk = sdkRef.current;
+      if (!sdk) {
+        const module = await import("@farcaster/miniapp-sdk");
+        sdk = module.sdk;
+        // Cache it for later use (like in handleShare)
+        sdkRef.current = sdk;
+      }
 
+      if (sdk) {
+        const context = await sdk.context;
+        
+        // If not added, prompt to add
         if (context?.client && !context.client.added) {
-            try {
-                await sdk.actions.addMiniApp();
-                // Optionally update state if they add it here
-                setIsAdded(true);
-            } catch (addError) {
-                console.log("User skipped adding app or error", addError);
-                // Decide if you want to stop here or continue searching anyway. 
-                // Usually, you continue searching even if they decline.
+          try {
+            const result = await sdk.actions.addMiniApp();
+            if (result.success) {
+               setIsAdded(true);
             }
+          } catch (addError) {
+            console.log("User skipped adding app or error", addError);
+            // We continue to search even if they cancel the prompt
+          }
         }
+      }
     } catch (contextError) {
-        console.error("Error checking context:", contextError);
+      console.error("Error checking context:", contextError);
     }
 
+    // 2. Fetch Score Data
     try {
       const response = await fetch(`/api/builder-score?name=${encodeURIComponent(basename)}`);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 404) {
-           throw new Error("Could not resolve this Basename. Please ensure spelling is correct, or try using your primary Basename if you have one set.");
+          throw new Error("Could not resolve this Basename. Please ensure spelling is correct, or try using your primary Basename if you have one set.");
         }
         throw new Error(data.error || 'Failed to fetch score');
       }
@@ -229,26 +236,35 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     } finally {
       setLoading(false);
     }
-  };
+};
 
-  const handleShare = async () => {
+
+ const handleShare = async () => {
     if (!scoreData || !basename) return;
-
-    const sdkInstance = getSdk();
-
-    const shareUrl = `${APP_URL}/?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position}`;
     
-    const text = `My Base Builder Score is ${scoreData.score.points} points! 🎉 See how I rank on @base:\n\nCheck yours here:`;
+    // Use the ref. If SDK isn't loaded yet, we can't share.
+    if (!sdkRef.current) {
+        console.error("SDK not ready");
+        return;
+    }
+
+    // FIX: Use 'rank_position' (snake_case) to match your TypeScript interface
+    // FIX: Ensure APPURL matches the constant defined at the top of your file
+    const shareUrl = `${APP_URL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'N/A'}`;
+    
+    const text = `My Base Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
 
     try {
-      await sdkInstance.actions.composeCast({
-        text: text,
-        embeds: [shareUrl]
+      await sdkRef.current.actions.composeCast({ 
+        text: text, 
+        embeds: [shareUrl] 
       });
     } catch (e) {
       console.error("Error launching compose cast", e);
     }
-  };
+};
+
+
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
