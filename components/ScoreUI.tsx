@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 // SDK import left external to avoid build issues
 import { 
   Search, Trophy, Calendar, User, Shield, Database, Activity, 
@@ -131,101 +131,63 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
   const [showConcepts, setShowConcepts] = useState(false);
   const [showImproveGuide, setShowImproveGuide] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [isAdded, setIsAdded] = useState(false); 
-  const sdkRef = useRef<any>(null);
 
   // Use useCallback to memoize SDK interaction handlers
   const handleAddMiniApp = useCallback(async () => {
-    if (!sdkRef.current) return;
-    
+    const sdkInstance = getSdk();
     try {
-      const result = await sdkRef.current.actions.addMiniApp();
-      if (result.success) {
-          setIsAdded(true);
-      }
+      await sdkInstance.actions.addMiniApp();
     } catch (e) {
-      console.error("Failed to add mini app manually", e);
+      console.error('Failed to add mini app manually', e);
     }
-}, []);
+  }, []);
 
-
-  
-    useEffect(() => {
-    let cancelled = false;
+  // FIX: Ensure ready() is called reliably when the component mounts
+  useEffect(() => {
     const initSdk = async () => {
-      try {
-        // Import the module destructuring the 'sdk' named export
-        const { sdk } = await import("@farcaster/miniapp-sdk");
-        
-        if (cancelled) return;
-        
-        // Store it in the ref for other functions to use
-        sdkRef.current = sdk;
-        
-        await sdk.actions.ready();
-        
-        // Check if already added
-        const context = await sdk.context;
-        if (context?.client?.added) {
-          setIsAdded(true);
+      // Check for global 'sdk' object availability
+      // @ts-ignore
+      if (typeof sdk !== 'undefined' && sdk.actions && sdk.actions.ready) { 
+        try {
+          // Call ready() immediately when component mounts and SDK object is available
+          await sdk.actions.ready();
+        } catch (err) {
+          console.error('Failed to call sdk.actions.ready():', err);
         }
-      } catch (err) {
-        console.error("Failed to initialize Farcaster Mini App SDK", err);
+      } else {
+        // Fallback for extremely slow environments: try again after a delay
+        setTimeout(initSdk, 500); 
       }
     };
     initSdk();
-    return () => {
-      cancelled = true;
-    };
   }, []);
-
-
 
   const handleCheckScore = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setScoreData(null);
+    
+    const sdkInstance = getSdk();
 
-    // 1. Check Context & Prompt to Add
+    // Prompt to add MiniApp on search interaction
     try {
-      // Use the ref if available, otherwise fallback to dynamic import
-      let sdk = sdkRef.current;
-      if (!sdk) {
-        const module = await import("@farcaster/miniapp-sdk");
-        sdk = module.sdk;
-        // Cache it for later use (like in handleShare)
-        sdkRef.current = sdk;
+      const context = await sdkInstance.context;
+      // @ts-ignore
+      if (context && context.client && !context.client.added) {
+         await sdkInstance.actions.addMiniApp();
       }
-
-      if (sdk) {
-        const context = await sdk.context;
-        
-        // If not added, prompt to add
-        if (context?.client && !context.client.added) {
-          try {
-            const result = await sdk.actions.addMiniApp();
-            if (result.success) {
-               setIsAdded(true);
-            }
-          } catch (addError) {
-            console.log("User skipped adding app or error", addError);
-            // We continue to search even if they cancel the prompt
-          }
-        }
-      }
-    } catch (contextError) {
-      console.error("Error checking context:", contextError);
+    } catch (e) {
+      console.log('User skipped adding app or error:', e);
     }
 
-    // 2. Fetch Score Data
     try {
       const response = await fetch(`/api/builder-score?name=${encodeURIComponent(basename)}`);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("Could not resolve this Basename. Please ensure spelling is correct, or try using your primary Basename if you have one set.");
+           throw new Error("Could not resolve this Basename. Please ensure spelling is correct, or try using your primary Basename if you have one set.");
         }
         throw new Error(data.error || 'Failed to fetch score');
       }
@@ -236,35 +198,26 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
     } finally {
       setLoading(false);
     }
-};
+  };
 
-
- const handleShare = async () => {
+  const handleShare = async () => {
     if (!scoreData || !basename) return;
-    
-    // Use the ref. If SDK isn't loaded yet, we can't share.
-    if (!sdkRef.current) {
-        console.error("SDK not ready");
-        return;
-    }
 
-    // FIX: Use 'rank_position' (snake_case) to match your TypeScript interface
-    // FIX: Ensure APPURL matches the constant defined at the top of your file
-    const shareUrl = `${APP_URL}?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'N/A'}`;
+    const sdkInstance = getSdk();
+
+    const shareUrl = `${APP_URL}/?name=${encodeURIComponent(basename)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position}`;
     
-    const text = `My Base Builder Score is ${scoreData.score.points} points! See how I rank on base yours here:`;
+    const text = `My Base Builder Score is ${scoreData.score.points} points! 🎉 See how I rank on @base:\n\nCheck yours here:`;
 
     try {
-      await sdkRef.current.actions.composeCast({ 
-        text: text, 
-        embeds: [shareUrl] 
+      await sdkInstance.actions.composeCast({
+        text: text,
+        embeds: [shareUrl]
       });
     } catch (e) {
       console.error("Error launching compose cast", e);
     }
-};
-
-
+  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -310,16 +263,14 @@ export default function ScoreUI({ initialBasename = '', initialScoreData = null 
             <div className="flex items-center justify-between mb-3">
               <h1 className="text-2xl font-bold tracking-tight">Base Builder Score</h1>
               <div className="flex items-center gap-2">
-                {!isAdded && (
-            <button 
-                onClick={handleAddMiniApp} 
-                className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all active:scale-95 group" 
-                title="Bookmark App"
-            >
-                <Bookmark className="w-4 h-4 text-blue-100 fill-transparent group-hover:fill-blue-100/50 transition-colors" />
-                <span className="text-xs font-semibold text-blue-50">Bookmark</span>
-            </button>
-        )}
+                <button 
+                  onClick={handleAddMiniApp}
+                  className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all active:scale-95 group"
+                  title="Bookmark App"
+                >
+                  <Bookmark className="w-4 h-4 text-blue-100 fill-transparent group-hover:fill-blue-100/50 transition-colors" />
+                  <span className="text-xs font-semibold text-blue-50">Bookmark</span>
+                </button>
               </div>
             </div>
             <p className="text-blue-100/90 text-sm leading-relaxed max-w-[90%]">
