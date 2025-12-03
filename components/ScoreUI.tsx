@@ -306,7 +306,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("Could not resolve this Basename. Please ensure spelling is correct.");
+          throw new Error("Could not resolve this Basename. Please ensure the spelling is correct, and verify that you’re using your primary Basename.");
         }
         throw new Error(data.error || 'Failed to fetch score');
       }
