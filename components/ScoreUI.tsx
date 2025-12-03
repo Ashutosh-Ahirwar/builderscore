@@ -260,7 +260,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
             await sdkRef.current.actions.sendToken({
                 chainId: 8453, 
                 to: DONATIONADDRESS,
-                amount: "500000000000000", 
+                amount: BigInt(500000000000000).toString(), 
                 token: {
                    chainId: 8453,
                    address: "0x0000000000000000000000000000000000000000", // Sentinel
