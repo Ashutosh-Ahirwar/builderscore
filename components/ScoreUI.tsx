@@ -7,6 +7,7 @@ import {
   BookOpen, X, Target, Sparkles, Heart, Bookmark, Share2, CornerUpRight,
   CheckCircle2 
 } from 'lucide-react';
+// Import viem for standard wallet support
 import { createWalletClient, custom, parseEther, toHex } from 'viem';
 import { base } from 'viem/chains';
 
@@ -215,11 +216,13 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
   
   const [showConcepts, setShowConcepts] = useState(false);
   const [showImproveGuide, setShowImproveGuide] = useState(false);
+  const [donationStatus, setDonationStatus] = useState<'idle' | 'pending' | 'success'>('idle');
   const [isCopied, setIsCopied] = useState(false);
   
   // Track Farcaster Mini App status & User PFP
   const [isAdded, setIsAdded] = useState(false);
   const [userPfp, setUserPfp] = useState<string | null>(null);
+  const [isFarcaster, setIsFarcaster] = useState(false);
   const sdkRef = useRef<any>(null);
 
   // Initialize SDK
@@ -245,6 +248,10 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
             // 2. Get User PFP from context
             if (context?.user?.pfpUrl) {
                 setUserPfp(context.user.pfpUrl);
+            }
+
+            if (context && context.user) {
+                setIsFarcaster(true);
             }
         } catch (ctxError) {
             console.log("Not running in Farcaster context or context retrieval failed.");
@@ -366,49 +373,13 @@ Check yours here:`;
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    let sdk = sdkRef.current;
-    let isFarcasterContext = false;
+    setDonationStatus('pending');
+    
+    const AMOUNT_ETH = "0.0005";
+    let success = false;
 
-    // 1. Try to load SDK if missing
-    if (!sdk) {
-        try {
-            const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
-            sdk = importedSdk;
-            sdkRef.current = sdk;
-        } catch (e) {
-            console.warn("Failed to load SDK dynamically", e);
-        }
-    }
-
-    // 2. Check if we are inside Farcaster
-    if (sdk) {
-        try {
-            const context = await sdk.context;
-            if (context && context.client) {
-                isFarcasterContext = true;
-                
-                // Attempt SDK Donate (use HEX string for amount to avoid UI confusion)
-                const amountWei = parseEther("0.0005");
-                const amountHex = toHex(amountWei);
-
-                await sdk.actions.sendToken({
-                    token: "eip155:8453/native",  // Base Chain ID (8453) + Native ETH
-                    amount: amountHex,            // Pass Hex string
-                    recipientAddress: DONATIONADDRESS
-                });
-                
-                return; // Success!
-            }
-        } catch (e: any) {
-            console.warn("Farcaster Donate failed or not in context:", e);
-            if (JSON.stringify(e).toLowerCase().includes("reject") || e.code === 4001) {
-                 return; // User rejected, do nothing
-            }
-        }
-    }
-
-    // 3. Fallback: Browser Wallet (via Viem) - Base App Fix
-    if (!isFarcasterContext && typeof window !== 'undefined' && (window as any).ethereum) {
+    // 1. Try Injected Wallet FIRST (Base App / MetaMask)
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
         try {
             console.log("Attempting Browser Wallet Transaction...");
             const walletClient = createWalletClient({
@@ -416,11 +387,11 @@ Check yours here:`;
                 transport: custom((window as any).ethereum)
             });
 
-            // Ensure chain is Base before request
+            // Ensure we are on Base chain
             try {
                 await walletClient.switchChain({ id: base.id });
             } catch (chainError) {
-                console.warn("Failed to switch chain", chainError);
+                console.warn("Failed to switch chain:", chainError);
             }
 
             const [address] = await walletClient.requestAddresses();
@@ -428,44 +399,78 @@ Check yours here:`;
             await walletClient.sendTransaction({
                 account: address,
                 to: DONATIONADDRESS,
-                value: parseEther('0.0005'),
+                value: parseEther(AMOUNT_ETH),
                 chain: base
             });
-            return; // Success!
+            
+            success = true;
         } catch (e: any) {
             console.error("Wallet transaction failed:", e);
+            // If user explicitly rejected, stop here
             if (e.code === 4001 || e.message?.toLowerCase().includes("reject")) {
-                return; // User rejected
+                setDonationStatus('idle');
+                return; 
             }
         }
     }
 
-    // 4. Final Fallback: Copy to Clipboard
-    const copyToClipboard = async (text: string) => {
+    // 2. Try Farcaster SDK (Fallback for Warpcast mobile)
+    // Fix: Convert amount to Hex string to ensure correct unit display (ETH instead of USD)
+    if (!success && isFarcaster && sdkRef.current) {
+        try {
+            const amountWei = parseEther(AMOUNT_ETH);
+            const amountHex = toHex(amountWei);
+
+            await sdkRef.current.actions.sendToken({
+                token: "eip155:8453/native",  // Base Chain ID (8453) + Native ETH
+                amount: amountHex,            // Pass Hex string to fix display issue
+                recipientAddress: DONATIONADDRESS
+            });
+            
+            success = true;
+        } catch (e: any) {
+            console.warn("Farcaster Donate failed:", e);
+            if (JSON.stringify(e).toLowerCase().includes("reject") || e.code === 4001) {
+                 setDonationStatus('idle');
+                 return;
+            }
+        }
+    }
+
+    // 3. Final Fallback: Copy to Clipboard
+    if (!success) {
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(text);
-                return true;
+                await navigator.clipboard.writeText(DONATIONADDRESS);
+                alert("Donation address copied to clipboard!");
+                success = true; // Mark success to show "Copied/Thank you" state
+            } else {
+                // Mobile/Fallback text area method
+                const textArea = document.createElement("textarea");
+                textArea.value = DONATIONADDRESS;
+                textArea.style.position = "fixed"; 
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert("Donation address copied to clipboard!");
+                success = true;
             }
-            // Mobile/Fallback
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed"; 
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            return true;
         } catch (err) {
-            return false;
+            console.error("Clipboard copy failed", err);
         }
-    };
+    }
 
-    const copied = await copyToClipboard(DONATIONADDRESS);
-    if (copied) {
+    if (success) {
+        setDonationStatus('success');
         setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
+        setTimeout(() => {
+            setDonationStatus('idle');
+            setIsCopied(false);
+        }, 2500);
+    } else {
+        setDonationStatus('idle');
     }
   };
 
@@ -747,12 +752,18 @@ Check yours here:`;
         <div className="fixed bottom-6 left-6 z-50">
           <button 
             onClick={handleDonate}
-            className="flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur-sm text-slate-500 font-medium rounded-full shadow-sm border border-slate-200/60 hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition-all duration-200 group active:scale-95"
+            disabled={donationStatus !== 'idle'}
+            className="flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur-sm text-slate-500 font-medium rounded-full shadow-sm border border-slate-200/60 hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition-all duration-200 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
             title="Support the builder"
           >
-            <Heart className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400 transition-colors" />
-            <span className="text-xs">Donate</span>
-            {isCopied && <span className="ml-1 text-[10px] text-green-600 animate-in fade-in">Copied</span>}
+            {donationStatus === 'success' ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            ) : (
+                <Heart className={`w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400 transition-colors ${donationStatus === 'pending' ? 'animate-pulse' : ''}`} />
+            )}
+            <span className="text-xs">
+                {donationStatus === 'pending' ? 'Pending...' : donationStatus === 'success' ? 'Thank You' : 'Donate'}
+            </span>
           </button>
         </div>
 
