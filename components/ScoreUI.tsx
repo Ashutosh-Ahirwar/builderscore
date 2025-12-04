@@ -7,6 +7,7 @@ import {
   BookOpen, X, Target, Sparkles, Heart, Bookmark, Share2, CornerUpRight,
   CheckCircle2 
 } from 'lucide-react';
+// Import viem for standard wallet support
 import { createWalletClient, custom, parseEther } from 'viem';
 import { base } from 'viem/chains';
 
@@ -361,8 +362,6 @@ Check yours here:`;
       });
     } catch (e) {
       console.error("Error launching compose cast", e);
-      // If compose fails (e.g. desktop), fallback or alert?
-      // For now we just log it as the button is mainly for FC users.
     }
 };
 
