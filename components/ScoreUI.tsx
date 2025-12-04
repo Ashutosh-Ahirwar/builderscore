@@ -233,7 +233,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
         sdkRef.current = sdk;
         await sdk.actions.ready();
         
-        // Wrap context fetch in try-catch
+        // Wrap context fetch in try-catch to avoid errors outside frames
         try {
             const context = await sdk.context;
             
@@ -246,13 +246,12 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
             if (context?.user?.pfpUrl) {
                 setUserPfp(context.user.pfpUrl);
             }
-        } catch {
-            // Not running in a Farcaster Frame context, which is expected for Base App
+        } catch (ctxError) {
+            console.log("Not running in Farcaster context or context retrieval failed.");
         }
 
       } catch (err) {
-        // SDK load failure is fine if we are in standard web
-        console.warn("Farcaster SDK not loaded (normal if outside Farcaster)");
+        console.error("Failed to initialize Farcaster Mini App SDK", err);
       }
     };
     initSdk();
@@ -281,12 +280,31 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     setError(null);
     setScoreData(null);
 
-    // Try to ensure SDK is loaded if we are in a frame context
-    if (!sdkRef.current) {
+    try {
+      let sdk = sdkRef.current;
+      if (!sdk) {
+         try {
+             const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
+             sdk = importedSdk;
+             sdkRef.current = sdk;
+         } catch { /* ignore */ }
+      }
+
+      if (sdk) {
         try {
-            const { sdk } = await import("@farcaster/miniapp-sdk");
-            sdkRef.current = sdk;
-        } catch { /* ignore */ }
+            const context = await sdk.context;
+            if (context?.client && !context.client.added) {
+                const result = await sdk.actions.addMiniApp();
+                if (result.success) setIsAdded(true);
+            }
+            // Refresh PFP just in case
+            if (context?.user?.pfpUrl) {
+                setUserPfp(context.user.pfpUrl);
+            }
+        } catch { /* Not in frame context */ }
+      }
+    } catch (contextError) {
+        console.error("Error checking context:", contextError);
     }
 
     try {
@@ -311,54 +329,90 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
   // Handle Share
   const handleShare = async () => {
     if (!scoreData || !basename) return;
-    
-    // Construct share URL
+    if (!sdkRef.current) return;
+
     const timestamp = Date.now();
+    
+    // Ensure lowercase and append .base.eth if missing
     let displayName = basename.toLowerCase().trim();
     if (!displayName.endsWith('.base.eth')) {
         displayName += '.base.eth';
     }
+    
+    // Construct share URL using the corrected displayName
     let shareUrl = `${APPURL}?name=${encodeURIComponent(displayName)}&score=${scoreData.score.points}&rank=${scoreData.score.rank_position ?? 'NaN'}&t=${timestamp}`;
     
+    // Add PFP or Address for the generator
     if (userPfp) {
         shareUrl += `&avatar=${encodeURIComponent(userPfp)}`;
     } else if (scoreData.address) {
         shareUrl += `&address=${scoreData.address}`;
     }
 
-    // Attempt Farcaster Share
-    if (sdkRef.current) {
-        try {
-            await sdkRef.current.actions.composeCast({ 
-                text: `My Base Builder Score is ${scoreData.score.points} points!\n\nCheck yours here:`, 
-                embeds: [shareUrl] 
-            });
-            return;
-        } catch (e) {
-            console.warn("Farcaster share failed or not available", e);
-        }
-    }
+    const text = `My Base Builder Score is ${scoreData.score.points} points!
 
-    // Fallback: Clipboard
-    navigator.clipboard.writeText(shareUrl);
-    alert("Share URL copied to clipboard!");
+
+Check yours here:`;
+
+    try {
+      await sdkRef.current.actions.composeCast({ 
+        text: text, 
+        embeds: [shareUrl] 
+      });
+    } catch (e) {
+      console.error("Error launching compose cast", e);
+    }
 };
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    let isSuccess = false;
+    let sdk = sdkRef.current;
+    let isFarcasterContext = false;
 
-    // STRATEGY: 
-    // 1. Try Injected Wallet (Viem) FIRST. 
-    // Base App (Coinbase Wallet) injects window.ethereum, so this is the most reliable method for Base App.
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
+    // 1. Try to load SDK if missing
+    if (!sdk) {
         try {
+            const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
+            sdk = importedSdk;
+            sdkRef.current = sdk;
+        } catch (e) {
+            console.warn("Failed to load SDK dynamically", e);
+        }
+    }
+
+    // 2. Check if we are inside Farcaster
+    if (sdk) {
+        try {
+            const context = await sdk.context;
+            if (context && context.client) {
+                isFarcasterContext = true;
+                
+                // Attempt SDK Donate
+                await sdk.actions.sendToken({
+                    token: "eip155:8453/native",  // Base Chain ID (8453) + Native ETH
+                    amount: "500000000000000",    // 0.0005 ETH in Wei
+                    recipientAddress: DONATIONADDRESS
+                });
+                
+                return; // Success!
+            }
+        } catch (e: any) {
+            console.warn("Farcaster Donate failed or not in context:", e);
+            if (JSON.stringify(e).toLowerCase().includes("reject") || e.code === 4001) {
+                 return; // User rejected, do nothing
+            }
+        }
+    }
+
+    // 3. Fallback: Browser Wallet (via Viem)
+    if (!isFarcasterContext && typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+            console.log("Attempting Browser Wallet Transaction...");
             const walletClient = createWalletClient({
                 chain: base,
                 transport: custom((window as any).ethereum)
             });
 
-            // Request access (Base App handles this automatically usually)
             const [address] = await walletClient.requestAddresses();
             
             await walletClient.sendTransaction({
@@ -367,63 +421,41 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
                 value: parseEther('0.0005'),
                 chain: base
             });
-            
-            isSuccess = true;
+            return; // Success!
         } catch (e: any) {
-            console.error("Browser wallet transaction failed:", e);
-            // If user rejected, we stop.
+            console.error("Wallet transaction failed:", e);
             if (e.code === 4001 || e.message?.toLowerCase().includes("reject")) {
-                return;
+                return; // User rejected
             }
-            // If strictly failed, we might try SDK fallback below
         }
     }
 
-    // 2. Try Farcaster SDK (if Step 1 didn't work)
-    // This is for Warpcast users where window.ethereum might be missing or limited
-    if (!isSuccess && sdkRef.current) {
+    // 4. Final Fallback: Copy to Clipboard
+    const copyToClipboard = async (text: string) => {
         try {
-            const context = await sdkRef.current.context;
-            if (context?.client) {
-                await sdkRef.current.actions.sendToken({
-                    token: "eip155:8453/native", 
-                    amount: "500000000000000",
-                    recipientAddress: DONATIONADDRESS
-                });
-                isSuccess = true;
-            }
-        } catch (e: any) {
-            console.warn("Farcaster SDK donation failed:", e);
-        }
-    }
-
-    // 3. Fallback: Copy to Clipboard
-    if (!isSuccess) {
-        const copyToClipboard = async (text: string) => {
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(text);
-                    return true;
-                }
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed"; 
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
                 return true;
-            } catch {
-                return false;
             }
-        };
-
-        const copied = await copyToClipboard(DONATIONADDRESS);
-        if (copied) {
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
+            // Mobile/Fallback
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; 
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return true;
+        } catch (err) {
+            return false;
         }
+    };
+
+    const copied = await copyToClipboard(DONATIONADDRESS);
+    if (copied) {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
     }
   };
 
@@ -607,7 +639,7 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-500/70 group-hover:text-white transition-all duration-300">
-                   <CornerUpRight className="w-4 h-4 group-hover:rotate-45 transition-transform" />
+                   <CornerUpRight className={`w-4 h-4 transition-transform duration-300 ${showConcepts ? 'rotate-45' : ''}`} />
                 </div>
                 <div className="text-left">
                   <span className="block font-bold text-slate-800 text-sm">Core Concepts</span>
