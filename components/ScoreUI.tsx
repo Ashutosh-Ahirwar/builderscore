@@ -7,7 +7,7 @@ import {
   BookOpen, X, Target, Sparkles, Heart, Bookmark, Share2, CornerUpRight,
   CheckCircle2 
 } from 'lucide-react';
-import { createWalletClient, custom, parseEther } from 'viem';
+import { createWalletClient, custom, parseEther, toHex } from 'viem';
 import { base } from 'viem/chains';
 
 // --- Configuration ---
@@ -387,10 +387,13 @@ Check yours here:`;
             if (context && context.client) {
                 isFarcasterContext = true;
                 
-                // Attempt SDK Donate
+                // Attempt SDK Donate (use HEX string for amount to avoid UI confusion)
+                const amountWei = parseEther("0.0005");
+                const amountHex = toHex(amountWei);
+
                 await sdk.actions.sendToken({
                     token: "eip155:8453/native",  // Base Chain ID (8453) + Native ETH
-                    amount: "500000000000000",    // 0.0005 ETH in Wei
+                    amount: amountHex,            // Pass Hex string
                     recipientAddress: DONATIONADDRESS
                 });
                 
@@ -404,7 +407,7 @@ Check yours here:`;
         }
     }
 
-    // 3. Fallback: Browser Wallet (via Viem)
+    // 3. Fallback: Browser Wallet (via Viem) - Base App Fix
     if (!isFarcasterContext && typeof window !== 'undefined' && (window as any).ethereum) {
         try {
             console.log("Attempting Browser Wallet Transaction...");
@@ -412,6 +415,13 @@ Check yours here:`;
                 chain: base,
                 transport: custom((window as any).ethereum)
             });
+
+            // Ensure chain is Base before request
+            try {
+                await walletClient.switchChain({ id: base.id });
+            } catch (chainError) {
+                console.warn("Failed to switch chain", chainError);
+            }
 
             const [address] = await walletClient.requestAddresses();
             
