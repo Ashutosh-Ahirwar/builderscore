@@ -5,8 +5,10 @@ import {
   Search, Trophy, Calendar, User, Shield, Database, Activity, 
   AlertCircle, ExternalLink, ChevronDown, 
   BookOpen, X, Target, Sparkles, Heart, Bookmark, Share2, CornerUpRight,
-  CheckCircle2 // Added for core concepts
+  CheckCircle2 
 } from 'lucide-react';
+import { createWalletClient, custom, parseEther } from 'viem';
+import { base } from 'viem/chains';
 
 // --- Configuration ---
 const APPURL = "https://builderscore.vercel.app";
@@ -231,16 +233,21 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
         sdkRef.current = sdk;
         await sdk.actions.ready();
         
-        const context = await sdk.context;
-        
-        // 1. Check if added
-        if (context?.client?.added) {
-          setIsAdded(true);
-        }
-        
-        // 2. Get User PFP from context
-        if (context?.user?.pfpUrl) {
-            setUserPfp(context.user.pfpUrl);
+        // Wrap context fetch in try-catch to avoid errors outside frames
+        try {
+            const context = await sdk.context;
+            
+            // 1. Check if added
+            if (context?.client?.added) {
+              setIsAdded(true);
+            }
+            
+            // 2. Get User PFP from context
+            if (context?.user?.pfpUrl) {
+                setUserPfp(context.user.pfpUrl);
+            }
+        } catch (ctxError) {
+            console.log("Not running in Farcaster context or context retrieval failed.");
         }
 
       } catch (err) {
@@ -276,25 +283,25 @@ export default function ScoreUI({ initialBasename, initialScoreData = null }: Sc
     try {
       let sdk = sdkRef.current;
       if (!sdk) {
-         const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
-         sdk = importedSdk;
-         sdkRef.current = sdk;
+         try {
+             const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
+             sdk = importedSdk;
+             sdkRef.current = sdk;
+         } catch { /* ignore */ }
       }
 
       if (sdk) {
-        const context = await sdk.context;
-        if (context?.client && !context.client.added) {
-            try {
+        try {
+            const context = await sdk.context;
+            if (context?.client && !context.client.added) {
                 const result = await sdk.actions.addMiniApp();
                 if (result.success) setIsAdded(true);
-            } catch (addError) {
-                console.log("User skipped adding app", addError);
             }
-        }
-        // Refresh PFP just in case
-        if (context?.user?.pfpUrl) {
-            setUserPfp(context.user.pfpUrl);
-        }
+            // Refresh PFP just in case
+            if (context?.user?.pfpUrl) {
+                setUserPfp(context.user.pfpUrl);
+            }
+        } catch { /* Not in frame context */ }
       }
     } catch (contextError) {
         console.error("Error checking context:", contextError);
@@ -354,58 +361,104 @@ Check yours here:`;
       });
     } catch (e) {
       console.error("Error launching compose cast", e);
+      // If compose fails (e.g. desktop), fallback or alert?
+      // For now we just log it as the button is mainly for FC users.
     }
 };
 
   // Handle Donate (0.0005 ETH)
   const handleDonate = async () => {
-    // 1. Ensure SDK is ready
     let sdk = sdkRef.current;
+    let isFarcasterContext = false;
+
+    // 1. Try to load SDK if missing
     if (!sdk) {
         try {
             const { sdk: importedSdk } = await import("@farcaster/miniapp-sdk");
             sdk = importedSdk;
             sdkRef.current = sdk;
         } catch (e) {
-            console.error("Failed to load SDK dynamically", e);
+            console.warn("Failed to load SDK dynamically", e);
         }
     }
 
-    // 2. Try Send Token (Using the format from MiniApp.tsx)
+    // 2. Check if we are inside Farcaster
     if (sdk) {
         try {
-            console.log("Attempting SDK sendToken...");
-            
-            await sdk.actions.sendToken({
-                token: "eip155:8453/native",  // Base Chain ID (8453) + Native ETH
-                amount: "500000000000000",    // 0.0005 ETH in Wei (String)
-                recipientAddress: DONATIONADDRESS
-            });
-            
-            return; // Success, stop here.
+            const context = await sdk.context;
+            if (context && context.client) {
+                isFarcasterContext = true;
+                
+                // Attempt SDK Donate
+                await sdk.actions.sendToken({
+                    token: "eip155:8453/native",  // Base Chain ID (8453) + Native ETH
+                    amount: "500000000000000",    // 0.0005 ETH in Wei
+                    recipientAddress: DONATIONADDRESS
+                });
+                
+                return; // Success!
+            }
         } catch (e: any) {
-            console.error("SDK sendToken failed:", e);
+            console.warn("Farcaster Donate failed or not in context:", e);
             if (JSON.stringify(e).toLowerCase().includes("reject") || e.code === 4001) {
-                 return;
+                 return; // User rejected, do nothing
             }
         }
     }
 
-    // 3. Fallback (Desktop/Copy)
-    const textArea = document.createElement("textarea");
-    textArea.value = DONATIONADDRESS;
-    textArea.style.position = "fixed"; 
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
-      console.error('Fallback copy failed', err);
+    // 3. Fallback: Browser Wallet (via Viem)
+    if (!isFarcasterContext && typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+            console.log("Attempting Browser Wallet Transaction...");
+            const walletClient = createWalletClient({
+                chain: base,
+                transport: custom((window as any).ethereum)
+            });
+
+            const [address] = await walletClient.requestAddresses();
+            
+            await walletClient.sendTransaction({
+                account: address,
+                to: DONATIONADDRESS,
+                value: parseEther('0.0005'),
+                chain: base
+            });
+            return; // Success!
+        } catch (e: any) {
+            console.error("Wallet transaction failed:", e);
+            if (e.code === 4001 || e.message?.toLowerCase().includes("reject")) {
+                return; // User rejected
+            }
+        }
     }
-    document.body.removeChild(textArea);
+
+    // 4. Final Fallback: Copy to Clipboard
+    const copyToClipboard = async (text: string) => {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+            // Mobile/Fallback
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; 
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return true;
+        } catch (err) {
+            return false;
+        }
+    };
+
+    const copied = await copyToClipboard(DONATIONADDRESS);
+    if (copied) {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    }
   };
 
   const formatDate = (dateString: string | null) => {
